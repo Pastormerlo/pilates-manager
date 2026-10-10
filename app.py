@@ -55,6 +55,7 @@ DIAS       = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 DIAS_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 HORAS      = list(range(7, 22))   # turnos de 07:00 a 21:00 (coincide con el CHECK del schema)
 CUPO_MAX   = 6                    # alumnos por instructor y horario
+VERSION    = '1.3'
 
 
 # ============================================================
@@ -1114,6 +1115,15 @@ def eliminar_pago(pid):
                 (pid, estudio_id(), instructor_id()))
     flash('Pago eliminado.', 'success')
     return redirect(url_for('facturacion', mes=mes))
+
+
+# ============================================================
+#  AYUDA
+# ============================================================
+@app.route('/ayuda')
+@login_required
+def ayuda():
+    return render_template('ayuda.html', es_admin=es_admin(), version=VERSION)
 
 
 # ============================================================

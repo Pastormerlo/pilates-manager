@@ -323,6 +323,7 @@
             {{ pill(url_for('instructores'), 'fa-chalkboard-teacher', 'Equipo', p.startswith('/instructores')) }}
             {{ pill(url_for('perfil'), 'fa-cog', 'Estudio', p.startswith('/perfil')) }}
             {% endif %}
+            {{ pill(url_for('ayuda'), 'fa-question-circle', 'Ayuda', p.startswith('/ayuda')) }}
             <form action="{{ url_for('logout') }}" method="POST" class="m-0">
                 <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
                 <button class="nav-pill salir" title="Salir ({{ session.get('nombre') }})"><i class="fas fa-sign-out-alt"></i></button>
@@ -342,6 +343,7 @@
                 <li><a class="dropdown-item" href="{{ url_for('instructores') }}"><i class="fas fa-chalkboard-teacher"></i> Equipo</a></li>
                 <li><a class="dropdown-item" href="{{ url_for('perfil') }}"><i class="fas fa-cog"></i> Estudio</a></li>
                 {% endif %}
+                <li><a class="dropdown-item" href="{{ url_for('ayuda') }}"><i class="fas fa-question-circle"></i> Ayuda</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <form action="{{ url_for('logout') }}" method="POST" class="m-0">

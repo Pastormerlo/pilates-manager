@@ -309,6 +309,7 @@
     <span><span class="m" style="background:#D63B3B;border-radius:50%;width:8px;height:8px;"></span>No pagó este mes</span>
     <span><i class="fas fa-redo me-1" style="color:var(--accent)"></i>Clase de recuperación · <b style="color:#B85C00">↺1</b> clases por recuperar</span>
     <span><i class="fas fa-hand-pointer me-1"></i>Tocá o arrastrá un alumno para moverlo · tocá un horario vacío para agregar</span>
+    <a href="{{ url_for('ayuda') }}#mover" style="color:var(--brand); font-weight:600;"><i class="fas fa-question-circle me-1"></i>¿Cómo se usa?</a>
 </div>
 
 <!-- ── BARRA DE ACCIONES ── -->
@@ -354,7 +355,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h6 class="modal-title fw-bold"><i class="fas fa-redo me-2"></i>Clases por recuperar</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <a href="{{ url_for('ayuda') }}#recuperar" class="ms-auto me-3" style="color:rgba(255,255,255,0.7);" title="¿Cómo funciona?"><i class="fas fa-question-circle"></i></a>
+                <button type="button" class="btn-close ms-0" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-0">
                 {% for f in pendientes %}

@@ -1,0 +1,243 @@
+{% extends 'layout.html' %}
+{% block title %}Ayuda · {{ session.get('estudio_nombre', 'Pilates Manager') }}{% endblock %}
+{% block content %}
+<style>
+    .ayuda { max-width: 760px; margin: 0 auto; }
+    .ayuda-buscar { position: relative; margin-bottom: 1rem; }
+    .ayuda-buscar i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--mid); font-size: 0.85rem; }
+    .ayuda-buscar input { padding-left: 36px; }
+    .tema {
+        background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow);
+        margin-bottom: 0.6rem; overflow: hidden;
+    }
+    .tema summary {
+        list-style: none; cursor: pointer;
+        display: flex; align-items: center; gap: 0.8rem;
+        padding: 0.9rem 1.1rem; font-weight: 600; font-size: 0.95rem;
+    }
+    .tema summary::-webkit-details-marker { display: none; }
+    .tema summary .ico {
+        width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+        background: var(--brand-pale); color: var(--brand);
+        display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+    }
+    .tema summary .flecha { margin-left: auto; color: var(--mid); font-size: 0.8rem; transition: transform 0.2s; }
+    .tema[open] summary .flecha { transform: rotate(180deg); }
+    .tema-cuerpo { padding: 0 1.2rem 1.1rem 1.2rem; font-size: 0.9rem; line-height: 1.55; }
+    .tema-cuerpo h6 { font-size: 0.82rem; font-weight: 700; margin: 1rem 0 0.4rem; color: var(--dark); }
+    .tema-cuerpo ol, .tema-cuerpo ul { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+    .tema-cuerpo li { margin-bottom: 0.25rem; }
+    .tema-cuerpo table { width: 100%; font-size: 0.85rem; margin-bottom: 0.6rem; }
+    .tema-cuerpo td { padding: 0.45rem 0.5rem; border-bottom: 1px solid #EEF2EC; vertical-align: top; }
+    .tema-cuerpo td:first-child { font-weight: 600; width: 42%; }
+    .muestra { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+    .tema.oculto { display: none; }
+    .sin-resultados { text-align: center; color: var(--mid); padding: 2rem 0; display: none; }
+    .acerca { text-align: center; color: var(--mid); font-size: 0.82rem; }
+</style>
+
+<div class="ayuda">
+    <div class="mb-3">
+        <h4 class="mb-0" style="font-family:'DM Serif Display',serif;">¿Cómo se usa?</h4>
+        <span class="text-muted" style="font-size:0.8rem;">Tocá un tema para abrirlo, o buscá lo que necesitás.</span>
+    </div>
+
+    <div class="ayuda-buscar">
+        <i class="fas fa-search"></i>
+        <input type="search" id="buscar" class="form-control" placeholder="Buscar: recuperar, WhatsApp, contraseña..." autocomplete="off">
+    </div>
+
+    <details class="tema" id="inicio">
+        <summary><span class="ico"><i class="fas fa-play"></i></span>Primeros pasos<i class="fas fa-chevron-down flecha"></i></summary>
+        <div class="tema-cuerpo">
+            <p>La pantalla principal es la <b>agenda de la semana</b>. Desde ahí movés, agregás y quitás turnos. El resto está en el menú de arriba (en el celular, en <b>Menú</b>).</p>
+            <h6>Tenerla como una app en el celular</h6>
+            <ul>
+                <li><b>Android (Chrome):</b> menú ⋮ → <b>Agregar a pantalla principal</b>.</li>
+                <li><b>iPhone (Safari):</b> botón Compartir → <b>Agregar a inicio</b>.</li>
+            </ul>
+            <h6>Quién ve qué</h6>
+            <table>
+                <tr><td>Admin (dueño del estudio)</td><td>Ve los turnos y pagos de todos, maneja el equipo y los datos del estudio.</td></tr>
+                <tr><td>Instructor</td><td>Ve y mueve solo sus turnos, y ve solo los pagos que cobró.</td></tr>
+            </table>
+            <p class="mb-0">Todos pueden ver y editar las fichas de los alumnos.</p>
+        </div>
+    </details>
+
+    <details class="tema" id="agenda">
+        <summary><span class="ico"><i class="fas fa-calendar-week"></i></span>Leer la agenda<i class="fas fa-chevron-down flecha"></i></summary>
+        <div class="tema-cuerpo">
+            <p>Muestra la semana de lunes a sábado. Con las flechas ‹ › pasás de semana; <b>Hoy</b> vuelve a la actual. En el celular se ve un día por vez: tocá las pestañas de arriba para cambiar de día.</p>
+            <table>
+                <tr><td><span class="muestra" style="background:var(--brand-pale);border-left:3px solid var(--brand)"></span>Pastilla verde</td><td>Turno fijo: se repite todas las semanas.</td></tr>
+                <tr><td><span class="muestra" style="background:#FFF0DC;border-left:3px solid var(--accent)"></span>Pastilla naranja</td><td>Clase solo de esa fecha.</td></tr>
+                <tr><td><i class="fas fa-redo" style="color:var(--accent)"></i> Ícono ↻</td><td>Es una clase de recuperación.</td></tr>
+                <tr><td><span class="muestra" style="background:#D63B3B;border-radius:50%;width:8px;height:8px"></span>Punto rojo</td><td>El alumno no pagó el mes.</td></tr>
+                <tr><td><b style="color:#B85C00">↺1</b></td><td>Clases que el alumno tiene por recuperar.</td></tr>
+                <tr><td>LA, MA…</td><td>Iniciales del instructor (solo si hay varios).</td></tr>
+                <tr><td>3/6</td><td>Alumnos en ese horario sobre el cupo de 6 por instructor.</td></tr>
+            </table>
+            <p class="mb-0">Las pastillas de arriba muestran cuántos no pagaron, lo cobrado en el mes y las clases por recuperar. Si hay varios instructores, podés filtrar la agenda por cada uno.</p>
+        </div>
+    </details>
+
+    <details class="tema" id="mover">
+        <summary><span class="ico"><i class="fas fa-arrows-alt"></i></span>Mover un alumno de día u horario<i class="fas fa-chevron-down flecha"></i></summary>
+        <div class="tema-cuerpo">
+            <ol>
+                <li>Tocá la pastilla del alumno. Se pone oscura y abajo aparece una barra con sus datos.</li>
+                <li>Tocá el horario nuevo (en la compu también podés arrastrarla). En el celular, si es otro día, primero tocá la pestaña de ese día: la selección se mantiene.</li>
+                <li>Si es un turno fijo, elegí:
+                    <ul>
+                        <li><b>Solo esta semana:</b> cambia esa clase; la semana siguiente vuelve a su horario.</li>
+                        <li><b>Todas las semanas:</b> su horario fijo pasa a ser el nuevo.</li>
+                    </ul>
+                </li>
+            </ol>
+            <p class="mb-0">Para cancelar, tocá la <b>×</b> de la barra. La app no deja mover si el horario ya tiene 6 alumnos, si el alumno ya tiene turno ahí, o si es domingo.</p>
+        </div>
+    </details>
+
+    <details class="tema" id="agregar">
+        <summary><span class="ico"><i class="fas fa-plus"></i></span>Agregar o quitar un turno<i class="fas fa-chevron-down flecha"></i></summary>
+        <div class="tema-cuerpo">
+            <h6>Agregar</h6>
+            <ol>
+                <li>Tocá un espacio libre de un horario, o el botón <b>+ Turno</b>.</li>
+                <li>Elegí el alumno (y el instructor, si sos admin).</li>
+                <li>Elegí <b>Fijo</b> (todas las semanas) o <b>Solo una fecha</b>, revisá día y hora, y tocá <b>Agregar</b>.</li>
+            </ol>
+            <h6>Quitar</h6>
+            <p class="mb-0">Tocá al alumno → <b>Quitar</b>. En un turno fijo elegís <b>Solo esta semana</b> (falta avisada, queda para recuperar) o <b>Quitar el turno fijo para siempre</b>.</p>
+        </div>
+    </details>
+
+    <details class="tema" id="recuperar">
+        <summary><span class="ico"><i class="fas fa-redo"></i></span>Faltas y clases por recuperar<i class="fas fa-chevron-down flecha"></i></summary>
+        <div class="tema-cuerpo">
+            <p>Cuando un alumno avisa que falta, tocalo → <b>Quitar</b> → <b>Solo esta semana</b>. La clase queda anotada como <b>pendiente de recuperar</b>.</p>
+            <h6>Agendar la recuperación</h6>
+            <ol>
+                <li>Tocá la pastilla naranja <b>↺ por recuperar</b> arriba de la agenda → <b>Agendar</b>. O tocá al alumno (tiene la marca ↺) → <b>Recuperar</b>.</li>
+                <li>La barra se pone marrón. Si recupera otra semana, pasá de semana con las flechas: el modo recuperar sigue activo.</li>
+                <li>Tocá el horario donde viene. Queda en naranja con el ícono ↻.</li>
+            </ol>
+            <h6>Otras opciones en la lista</h6>
+            <ul class="mb-0">
+                <li><b>No la recupera:</b> la saca de pendientes.</li>
+                <li><b>Fue un error, no faltó:</b> borra la falta y el alumno vuelve a tener esa clase.</li>
+                <li>Si quitás una clase de recuperación, la falta vuelve a quedar pendiente.</li>
+            </ul>
+        </div>
+    </details>
+
+    <details class="tema" id="whatsapp">
+        <summary><span class="ico"><i class="fab fa-whatsapp"></i></span>Avisar al alumno por WhatsApp<i class="fas fa-chevron-down flecha"></i></summary>
+        <div class="tema-cuerpo">
+            <p>Después de mover, quitar o recuperar una clase, aparece el mensaje ya escrito (lo podés editar). Tocá <b>Avisar por WhatsApp</b>: se abre WhatsApp con el mensaje y el número del alumno, y solo tocás Enviar.</p>
+            <p>Para mandar un recordatorio en cualquier momento: tocá al alumno → <b>WhatsApp</b>.</p>
+            <p class="mb-0">El teléfono tiene que estar cargado con código de área (ej. 11 4408-1508); la app agrega el +54 9 sola. Si no tiene, WhatsApp te deja elegir el contacto.</p>
+        </div>
+    </details>
+
+    <details class="tema" id="alumnos">
+        <summary><span class="ico"><i class="fas fa-users"></i></span>Alumnos y fichas<i class="fas fa-chevron-down flecha"></i></summary>
+        <div class="tema-cuerpo">
+            <ul class="mb-0">
+                <li><b>Registrar:</b> Alumnos → <b>Nuevo alumno</b>. Con nombre y apellido alcanza; después le asignás turnos desde la agenda.</li>
+                <li><b>Ver o editar la ficha:</b> el lápiz azul, o desde la agenda tocá al alumno → <b>Ficha</b>. Tiene contacto, obra social, datos médicos y apto médico.</li>
+                <li><b>Buscar:</b> por nombre, apellido o DNI.</li>
+                <li><b>Dar de baja:</b> el tacho rojo. Libera sus turnos; los pagos anteriores quedan registrados.</li>
+            </ul>
+        </div>
+    </details>
+
+    <details class="tema" id="pagos">
+        <summary><span class="ico"><i class="fas fa-wallet"></i></span>Pagos y recibos<i class="fas fa-chevron-down flecha"></i></summary>
+        <div class="tema-cuerpo">
+            <ol>
+                <li>En <b>Pagos</b>, tocá <b>Registrar pago</b>, o <b>Cobrar</b> al lado de un alumno de la lista "Sin pagar". También desde la agenda: tocá al alumno → <b>Cobrar</b>.</li>
+                <li>El monto viene con la cuota mensual configurada. Revisá mes y concepto, y tocá <b>Registrar</b>.</li>
+            </ol>
+            <ul class="mb-0">
+                <li><b>Recibo:</b> el ícono de impresora en cada pago. Si no se abre, permití las ventanas emergentes.</li>
+                <li><b>Otro mes:</b> los botones de meses arriba de la lista.</li>
+                <li><b>Pago cargado por error:</b> el tacho rojo.</li>
+            </ul>
+        </div>
+    </details>
+
+    {% if es_admin %}
+    <details class="tema" id="equipo">
+        <summary><span class="ico"><i class="fas fa-chalkboard-teacher"></i></span>Equipo y datos del estudio (admin)<i class="fas fa-chevron-down flecha"></i></summary>
+        <div class="tema-cuerpo">
+            <h6>Equipo</h6>
+            <ul>
+                <li><b>Nuevo instructor:</b> nombre, email, contraseña (mínimo 6) y rol. Pasale email y contraseña para que entre.</li>
+                <li><b>Editar:</b> el lápiz azul cambia nombre, rol o contraseña.</li>
+                <li><b>Desactivar:</b> deja de poder entrar en el momento. Sus turnos quedan en la agenda hasta que los muevas. Se puede reactivar.</li>
+            </ul>
+            <h6>Estudio</h6>
+            <p class="mb-0">Nombre (aparece en la app, los recibos y los WhatsApp), logo, cuota mensual (se sugiere al cobrar) y valor por clase.</p>
+        </div>
+    </details>
+    {% endif %}
+
+    <details class="tema" id="preguntas">
+        <summary><span class="ico"><i class="fas fa-question"></i></span>Preguntas frecuentes<i class="fas fa-chevron-down flecha"></i></summary>
+        <div class="tema-cuerpo">
+            <table class="mb-0">
+                <tr><td>Un alumno avisa que falta</td><td>Tocalo → Quitar → Solo esta semana. Queda para recuperar.</td></tr>
+                <tr><td>Recupera más adelante</td><td>↺ por recuperar → Agendar → tocá el horario.</td></tr>
+                <tr><td>Cambia su horario fijo</td><td>Tocalo, tocá el horario nuevo → Todas las semanas.</td></tr>
+                <tr><td>Marqué una falta por error</td><td>↺ por recuperar → Fue un error, no faltó.</td></tr>
+                <tr><td>No me deja mover</td><td>El horario está lleno o el alumno ya tiene turno ahí; el aviso de arriba dice cuál.</td></tr>
+                <tr><td>"La sesión expiró"</td><td>Recargá la página y repetí lo que estabas haciendo.</td></tr>
+                <tr><td>Me saca al ingreso</td><td>Se cerró la sesión o tu usuario fue desactivado. Volvé a entrar o consultá al admin.</td></tr>
+                <tr><td>No veo turnos de otros instructores</td><td>Es normal: cada instructor ve los suyos; el admin, todos.</td></tr>
+                <tr><td>Me olvidé la contraseña</td><td>El admin puede ponerte una nueva desde Equipo.</td></tr>
+            </table>
+        </div>
+    </details>
+
+    <div class="sin-resultados" id="sinResultados">
+        <i class="fas fa-search fa-lg mb-2 d-block"></i>No encontramos nada con esa palabra.
+    </div>
+
+    <div class="acerca mt-4" id="acerca">
+        <div style="font-family:'DM Serif Display',serif; font-size:1.05rem; color:var(--dark);">Pilates Manager</div>
+        Versión {{ version }} · {{ session.get('estudio_nombre', '') }}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+    const temas = [...document.querySelectorAll('.tema')];
+    const buscar = document.getElementById('buscar');
+    const sinRes = document.getElementById('sinResultados');
+    const normal = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+    // Abrir el tema indicado en el link (ej. /ayuda#recuperar)
+    const destino = location.hash && document.getElementById(location.hash.slice(1));
+    if (destino && destino.classList.contains('tema')) {
+        destino.open = true;
+        setTimeout(() => destino.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }
+
+    buscar.addEventListener('input', () => {
+        const q = normal(buscar.value.trim());
+        let hay = 0;
+        temas.forEach(t => {
+            const coincide = !q || normal(t.textContent).includes(q);
+            t.classList.toggle('oculto', !coincide);
+            if (q) t.open = coincide;   // con búsqueda se abren las coincidencias; al borrarla no se cierra nada
+            if (coincide) hay++;
+        });
+        sinRes.style.display = hay ? 'none' : 'block';
+    });
+})();
+</script>
+{% endblock %}
