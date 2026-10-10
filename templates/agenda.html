@@ -141,6 +141,13 @@
     .bb:hover { background: rgba(255,255,255,0.18); color: #fff; }
     .bb.rojo { color: #ff9d9d; }
     .bb.cerrar { min-width: 40px; }
+    .bb.wsp { color: #5BE38A; }
+    .btn-wsp {
+        display: block; text-align: center; text-decoration: none;
+        background: #25D366; color: #fff; border-radius: 10px;
+        font-weight: 600; font-size: 0.88rem;
+    }
+    .btn-wsp:hover { background: #1EBE5A; color: #fff; }
     body.con-barra { padding-bottom: 120px; }
 
     /* ── PESTAÑAS DE DÍA (celular) ── */
@@ -250,7 +257,7 @@
              data-hora="{{ t.hora }}" data-dia="{{ dias[d] }}"
              data-alumno="{{ t.alumno_id }}" data-inst="{{ t.instructor_id }}"
              data-inst-nombre="{{ t.instructor_nombre }}"
-             data-nombre="{{ t.apellido }}, {{ t.nombre }}"
+             data-nombre="{{ t.apellido }}, {{ t.nombre }}" data-pila="{{ t.nombre.split(' ')[0] }}"
              data-tel="{{ t.telefono or '' }}" data-pagado="{{ 1 if t.pagado else 0 }}">
             <span class="punto"></span>
             <span class="nom">{{ t.apellido }} {{ t.nombre[:1] }}.</span>
@@ -282,6 +289,7 @@
         <a class="bb" id="bFicha" href="#"><i class="fas fa-id-card"></i>Ficha</a>
         <a class="bb" id="bCobrar" href="#"><i class="fas fa-dollar-sign"></i>Cobrar</a>
         <a class="bb" id="bTel" href="#"><i class="fas fa-phone"></i>Llamar</a>
+        <a class="bb wsp" id="bWsp" href="#" target="_blank" rel="noopener" title="Mandar recordatorio de la clase"><i class="fab fa-whatsapp"></i>WhatsApp</a>
         <button type="button" class="bb rojo" id="bQuitar"><i class="fas fa-trash-alt"></i>Quitar</button>
         <button type="button" class="bb cerrar" id="bCerrar" title="Cancelar (Esc)"><i class="fas fa-times"></i></button>
     </div>
@@ -300,6 +308,29 @@
                 <div class="d-grid gap-2">
                     <button type="button" class="btn-brand py-2" id="mmSemana" data-modo="semana"></button>
                     <button type="button" class="btn-ghost py-2" id="mmSiempre" data-modo="siempre"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: AVISAR AL ALUMNO POR WHATSAPP ── -->
+<div class="modal fade" id="modalAviso" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold"><i class="fas fa-check-circle me-2" style="color:var(--brand-light)"></i><span id="avTitulo"></span></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="small">Mensaje para el alumno</label>
+                <textarea class="form-control mb-2" id="avTexto" rows="5" style="font-size:0.85rem;"></textarea>
+                <div class="mb-3" style="font-size:0.75rem; color:var(--mid);" id="avNota"></div>
+                <div class="d-grid gap-2">
+                    <a class="btn-wsp py-2" id="avEnviar" href="#" target="_blank" rel="noopener">
+                        <i class="fab fa-whatsapp me-1"></i><span id="avBoton"></span>
+                    </a>
+                    <button type="button" class="btn-ghost py-2" data-bs-dismiss="modal">No avisar</button>
                 </div>
             </div>
         </div>
@@ -408,6 +439,26 @@
     // ── utilidades ──
     const ddmm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
     const hh   = h => String(h).padStart(2, '0') + ':00';
+    const cuando = (dia, fecha, hora) => `${dia.toLowerCase()} ${ddmm(fecha)} a las ${hh(hora)}`;
+
+    // ── WhatsApp ──
+    const ESTUDIO = {{ session.get('estudio_nombre', '')|tojson }};
+    const firma = ESTUDIO ? `\n\n${ESTUDIO}` : '';
+
+    // Celular argentino → formato internacional que pide WhatsApp (549 + área + número)
+    function telWsp(tel) {
+        let n = (tel || '').replace(/\D/g, '');
+        if (n.startsWith('54')) { n = n.slice(2); if (n.startsWith('9')) n = n.slice(1); }
+        n = n.replace(/^0/, '');
+        if (n.length === 12) {          // tiene el 15 después del código de área
+            for (const i of [2, 3, 4]) {
+                if (n.substr(i, 2) === '15') { n = n.slice(0, i) + n.slice(i + 2); break; }
+            }
+        }
+        return n.length === 10 ? '549' + n : '';
+    }
+    // Sin número válido, WhatsApp abre el mensaje y deja elegir el contacto
+    const linkWsp = (tel, texto) => `https://wa.me/${telWsp(tel)}?text=${encodeURIComponent(texto)}`;
 
     function aviso(msg, tipo = 'danger') {
         let zona = document.querySelector('.toast-zona');
@@ -504,6 +555,8 @@
         const tel = document.getElementById('bTel');
         tel.hidden = !d.tel;
         tel.href = d.tel ? 'tel:' + d.tel.replace(/[^\d+]/g, '') : '#';
+        document.getElementById('bWsp').href = linkWsp(d.tel,
+            `¡Hola ${d.pila}! Te recuerdo tu clase del ${cuando(d.dia, d.fecha, d.hora)}. ¡Te esperamos!` + firma);
         barra.hidden = false;
         document.body.classList.add('con-barra');
     }
@@ -540,12 +593,35 @@
         });
     }
 
+    // ── aviso al alumno después de un cambio ──
+    const modalAviso = new bootstrap.Modal(document.getElementById('modalAviso'));
+    const avTexto  = document.getElementById('avTexto');
+    const avEnviar = document.getElementById('avEnviar');
+    let avTel = '';
+    const actualizarLinkAviso = () => { avEnviar.href = linkWsp(avTel, avTexto.value); };
+    avTexto.addEventListener('input', actualizarLinkAviso);
+    avEnviar.addEventListener('click', () => setTimeout(() => modalAviso.hide(), 300));
+    document.getElementById('modalAviso').addEventListener('hidden.bs.modal', recargar);
+
+    function avisar(titulo, d, texto) {
+        avTel = d.tel;
+        const conTel = !!telWsp(d.tel);
+        document.getElementById('avTitulo').textContent = titulo;
+        avTexto.value = texto + firma;
+        document.getElementById('avBoton').textContent = conTel ? `Avisar a ${d.pila} por WhatsApp` : 'Elegir contacto en WhatsApp';
+        document.getElementById('avNota').textContent = conTel
+            ? `Se abre WhatsApp con el mensaje para ${d.tel}; solo tocás Enviar. Podés editar el texto antes.`
+            : `${d.pila} no tiene un celular con código de área cargado (ej. 11 4408-1508). Podés elegir el contacto en WhatsApp o completarlo en su ficha.`;
+        actualizarLinkAviso();
+        modalAviso.show();
+    }
+
     // ── mover ──
     async function moverA(celda) {
         const chip = sel;
         if (!chip) return;
         if (celda === chip.parentElement) { deseleccionar(); return; }
-        const d = chip.dataset;
+        const d = { ...chip.dataset };
         const destino = `${celda.dataset.dia} ${ddmm(celda.dataset.fecha)} ${hh(celda.dataset.hora)}`;
         const body = { id: d.id, fecha: celda.dataset.fecha, hora: +celda.dataset.hora, fecha_origen: d.fecha };
 
@@ -563,7 +639,13 @@
         const r = await post('{{ url_for("mover_turno") }}', body);
         if (r.ok) {
             celda.insertBefore(chip, celda.querySelector('.cupo'));
-            recargar();
+            deseleccionar();
+            const c = celda.dataset;
+            const texto = (d.tipo === 'fijo' && body.modo === 'siempre')
+                ? `¡Hola ${d.pila}! Te aviso que tu turno fijo de los ${d.dia.toLowerCase()} a las ${hh(d.hora)} pasa a los ${c.dia.toLowerCase()} a las ${hh(c.hora)}, a partir de esta semana.`
+                : `¡Hola ${d.pila}! Te aviso que tu clase del ${cuando(d.dia, d.fecha, d.hora)} pasa al ${cuando(c.dia, c.fecha, c.hora)}.`
+                  + (d.tipo === 'fijo' ? ' Las semanas siguientes seguís en tu horario de siempre.' : '');
+            avisar('Turno movido', d, texto);
         } else if (r.error) {
             aviso(r.error);
         }
@@ -572,7 +654,8 @@
     // ── quitar ──
     document.getElementById('bQuitar').addEventListener('click', async () => {
         if (!sel) return;
-        const d = sel.dataset;
+        const chip = sel;
+        const d = { ...chip.dataset };
         const modo = await preguntar(d.tipo === 'fijo' ? {
             titulo: 'Quitar turno',
             texto: `${d.nombre} · ${d.dia} ${hh(d.hora)}`,
@@ -585,7 +668,18 @@
         });
         if (!modo) return;
         const r = await post('{{ url_for("quitar_turno") }}', { id: d.id, modo, fecha: d.fecha });
-        if (r.ok) recargar(); else if (r.error) aviso(r.error);
+        if (r.ok) {
+            chip.remove();
+            deseleccionar();
+            const texto = d.tipo !== 'fijo'
+                ? `¡Hola ${d.pila}! Te confirmo que se canceló tu clase del ${cuando(d.dia, d.fecha, d.hora)}.`
+                : modo === 'semana'
+                    ? `¡Hola ${d.pila}! Te confirmo que esta semana no tenés la clase del ${cuando(d.dia, d.fecha, d.hora)}. Las semanas siguientes seguís en tu horario de siempre.`
+                    : `¡Hola ${d.pila}! Te confirmo que se dio de baja tu turno fijo de los ${d.dia.toLowerCase()} a las ${hh(d.hora)}.`;
+            avisar('Turno quitado', d, texto);
+        } else if (r.error) {
+            aviso(r.error);
+        }
     });
 
     // ── clicks en la grilla ──
