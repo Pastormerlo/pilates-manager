@@ -142,6 +142,28 @@
     .bb.rojo { color: #ff9d9d; }
     .bb.cerrar { min-width: 40px; }
     .bb.wsp { color: #5BE38A; }
+    .bb.recup { background: var(--accent); color: #fff; }
+    .bb.recup:hover { background: #E07000; }
+    .barra.recuperando { background: #5C3300; }
+    .barra.recuperando .bb:not(.cerrar) { display: none; }
+
+    /* ── RECUPERACIONES ── */
+    .pastilla.naranja { background: #FFF0DC; border-color: #FFD9A8; color: #B85C00; }
+    .chip .pend {
+        font-size: 0.62rem; font-weight: 700; flex-shrink: 0;
+        background: #FFE1B8; color: #B85C00; border-radius: 4px; padding: 0 4px;
+    }
+    .chip .chip-rec { font-size: 0.6rem; color: var(--accent); flex-shrink: 0; }
+    .chip.sel .pend { background: var(--accent); color: #fff; }
+    .falta-row {
+        display: flex; align-items: center; gap: 0.8rem;
+        padding: 0.8rem 1.2rem; border-bottom: 1px solid #F0F4EE; font-size: 0.88rem;
+    }
+    .falta-row:last-child { border-bottom: none; }
+    .falta-det { font-size: 0.78rem; color: var(--mid); }
+    .falta-links { font-size: 0.72rem; color: var(--mid); margin-top: 2px; }
+    .link-chico { background: none; border: none; padding: 0; color: var(--mid); text-decoration: underline; font-size: 0.72rem; }
+    .link-chico:hover { color: var(--dark); }
     .btn-wsp {
         display: block; text-align: center; text-decoration: none;
         background: #25D366; color: #fff; border-radius: 10px;
@@ -205,6 +227,12 @@
         {% endif %}
     </div>
     <div class="pastillas">
+        {% if pendientes %}
+        <button type="button" class="pastilla naranja" data-bs-toggle="modal" data-bs-target="#modalRecuperar"
+                title="Clases que los alumnos tienen que recuperar">
+            <i class="fas fa-redo"></i>{{ pendientes|length }} por recuperar
+        </button>
+        {% endif %}
         {% if deudores %}
         <a href="{{ url_for('facturacion') }}" class="pastilla roja" title="Alumnos sin pago este mes">
             <i class="fas fa-circle" style="font-size:0.5rem;"></i>{{ deudores|length }} sin pagar
@@ -252,7 +280,9 @@
     <div class="celda d{{ d }} {% if fechas[d] == hoy %}hoy{% endif %}"
          data-d="{{ d }}" data-dia="{{ dias[d] }}" data-fecha="{{ fechas[d].isoformat() }}" data-hora="{{ h }}">
         {% for t in celdas[(d, h)] %}
+        {% set pend = pendientes_por_alumno.get(t.alumno_id, [])|length %}
         <div class="chip {{ t.tipo }} {% if not t.pagado %}debe{% endif %}" draggable="true"
+             data-pend="{{ pend }}"
              data-id="{{ t.id }}" data-tipo="{{ t.tipo }}" data-fecha="{{ t.fecha_turno }}"
              data-hora="{{ t.hora }}" data-dia="{{ dias[d] }}"
              data-alumno="{{ t.alumno_id }}" data-inst="{{ t.instructor_id }}"
@@ -262,6 +292,8 @@
             <span class="punto"></span>
             <span class="nom">{{ t.apellido }} {{ t.nombre[:1] }}.</span>
             <span class="nom-largo">{{ t.apellido }}, {{ t.nombre }}</span>
+            {% if t.recupera_falta_id %}<i class="fas fa-redo chip-rec" title="Clase de recuperación"></i>{% endif %}
+            {% if pend %}<span class="pend" title="{{ pend }} clase{{ 's' if pend > 1 }} por recuperar">↺{{ pend }}</span>{% endif %}
             {% if multi %}<span class="ini">{{ t.instructor_nombre[:2] }}</span>{% endif %}
         </div>
         {% endfor %}
@@ -275,6 +307,7 @@
     <span><span class="m" style="background:var(--brand-pale);border-left:3px solid var(--brand);"></span>Fijo semanal</span>
     <span><span class="m" style="background:#FFF0DC;border-left:3px solid var(--accent);"></span>Solo esa fecha</span>
     <span><span class="m" style="background:#D63B3B;border-radius:50%;width:8px;height:8px;"></span>No pagó este mes</span>
+    <span><i class="fas fa-redo me-1" style="color:var(--accent)"></i>Clase de recuperación · <b style="color:#B85C00">↺1</b> clases por recuperar</span>
     <span><i class="fas fa-hand-pointer me-1"></i>Tocá o arrastrá un alumno para moverlo · tocá un horario vacío para agregar</span>
 </div>
 
@@ -284,8 +317,9 @@
         <div class="barra-nombre" id="bNombre"></div>
         <div class="barra-det" id="bDet"></div>
     </div>
-    <div class="barra-hint"><i class="fas fa-arrows-alt me-1"></i>Tocá otro horario (o arrastrá) para moverlo</div>
+    <div class="barra-hint"><i class="fas fa-arrows-alt me-1"></i><span id="bHint">Tocá otro horario (o arrastrá) para moverlo</span></div>
     <div class="barra-acc">
+        <button type="button" class="bb recup" id="bRecuperar" hidden><i class="fas fa-redo"></i>Recuperar</button>
         <a class="bb" id="bFicha" href="#"><i class="fas fa-id-card"></i>Ficha</a>
         <a class="bb" id="bCobrar" href="#"><i class="fas fa-dollar-sign"></i>Cobrar</a>
         <a class="bb" id="bTel" href="#"><i class="fas fa-phone"></i>Llamar</a>
@@ -309,6 +343,36 @@
                     <button type="button" class="btn-brand py-2" id="mmSemana" data-modo="semana"></button>
                     <button type="button" class="btn-ghost py-2" id="mmSiempre" data-modo="siempre"></button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: CLASES POR RECUPERAR ── -->
+<div class="modal fade" id="modalRecuperar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold"><i class="fas fa-redo me-2"></i>Clases por recuperar</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                {% for f in pendientes %}
+                <div class="falta-row">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:600;">{{ f.apellido }}, {{ f.nombre }}</div>
+                        <div class="falta-det" data-falta-det="{{ f.id }}"></div>
+                        <div class="falta-links">
+                            <button type="button" class="link-chico" data-descartar="{{ f.id }}">No la recupera</button>
+                            &middot;
+                            <button type="button" class="link-chico" data-anular="{{ f.id }}">Fue un error, no faltó</button>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-brand flex-shrink-0" data-recuperar="{{ f.id }}">
+                        <i class="fas fa-calendar-plus me-1"></i>Agendar
+                    </button>
+                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
@@ -557,6 +621,9 @@
         tel.href = d.tel ? 'tel:' + d.tel.replace(/[^\d+]/g, '') : '#';
         document.getElementById('bWsp').href = linkWsp(d.tel,
             `¡Hola ${d.pila}! Te recuerdo tu clase del ${cuando(d.dia, d.fecha, d.hora)}. ¡Te esperamos!` + firma);
+        const bRec = document.getElementById('bRecuperar');
+        bRec.hidden = d.pend === '0';
+        bRec.lastChild.textContent = d.pend > 1 ? `Recuperar (${d.pend})` : 'Recuperar';
         barra.hidden = false;
         document.body.classList.add('con-barra');
     }
@@ -568,8 +635,81 @@
         barra.hidden = true;
         document.body.classList.remove('con-barra');
     }
-    document.getElementById('bCerrar').addEventListener('click', deseleccionar);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') deseleccionar(); });
+
+    // ── recuperar clases ──
+    // Mientras se recupera, tocar cualquier horario agenda la clase ahí. El estado se guarda
+    // para poder cambiar de semana con las flechas sin perderlo.
+    const PENDIENTES = {{ pendientes|tojson }};
+    const DIAS = {{ dias|tojson }};
+    const diaDe = iso => DIAS[new Date(iso + 'T12:00:00').getDay() - 1];
+    const HINT_MOVER = document.getElementById('bHint').textContent;
+    let recuperando = null;
+
+    function iniciarRecuperar(f) {
+        deseleccionar();
+        recuperando = f;
+        try { sessionStorage.setItem('recuperando', JSON.stringify(f)); } catch (e) {}
+        agenda.classList.add('moviendo');
+        barra.classList.add('recuperando');
+        document.getElementById('bNombre').textContent = `Recuperar: ${f.apellido}, ${f.nombre}`;
+        document.getElementById('bDet').textContent =
+            `Faltó el ${cuando(diaDe(f.fecha), f.fecha, f.hora)}` + (MULTI ? ` · ${f.instructor_nombre}` : '');
+        document.getElementById('bHint').textContent = 'Tocá el horario donde recupera. Para otra semana, usá las flechas ‹ ›';
+        barra.hidden = false;
+        document.body.classList.add('con-barra');
+    }
+
+    function cancelarRecuperar() {
+        recuperando = null;
+        try { sessionStorage.removeItem('recuperando'); } catch (e) {}
+        barra.classList.remove('recuperando');
+        document.getElementById('bHint').textContent = HINT_MOVER;
+        deseleccionar();
+    }
+
+    async function recuperarEn(celda) {
+        const f = recuperando;
+        const c = celda.dataset;
+        const r = await post('{{ url_for("recuperar") }}', { falta_id: f.id, fecha: c.fecha, hora: +c.hora });
+        if (!r.ok) { if (r.error) aviso(r.error); return; }
+        cancelarRecuperar();
+        avisar('Recuperación agendada', { tel: f.telefono || '', pila: f.nombre.split(' ')[0] },
+            `¡Hola ${f.nombre.split(' ')[0]}! Te confirmo la recuperación de tu clase del ${cuando(diaDe(f.fecha), f.fecha, f.hora)}: te esperamos el ${cuando(c.dia, c.fecha, c.hora)}.`);
+    }
+
+    document.getElementById('bRecuperar').addEventListener('click', () => {
+        const f = sel && PENDIENTES.find(p => String(p.alumno_id) === sel.dataset.alumno);
+        if (f) iniciarRecuperar(f);
+    });
+
+    // Lista de pendientes
+    const modalRecuperar = document.getElementById('modalRecuperar');
+    if (modalRecuperar) {
+        modalRecuperar.querySelectorAll('[data-falta-det]').forEach(el => {
+            const f = PENDIENTES.find(p => p.id == el.dataset.faltaDet);
+            el.textContent = `Faltó el ${cuando(diaDe(f.fecha), f.fecha, f.hora)}` + (MULTI ? ` · ${f.instructor_nombre}` : '');
+        });
+        modalRecuperar.addEventListener('click', async e => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            if (b.dataset.recuperar) {
+                bootstrap.Modal.getInstance(modalRecuperar).hide();
+                iniciarRecuperar(PENDIENTES.find(p => p.id == b.dataset.recuperar));
+            } else if (b.dataset.descartar) {
+                if (!confirm('¿Sacar esta clase de la lista? No se va a recuperar.')) return;
+                const r = await post('{{ url_for("descartar_falta") }}', { falta_id: +b.dataset.descartar });
+                if (r.ok) recargar(); else if (r.error) aviso(r.error);
+            } else if (b.dataset.anular) {
+                if (!confirm('¿Anular la falta? El alumno vuelve a tener esa clase en la agenda.')) return;
+                const r = await post('{{ url_for("anular_falta") }}', { falta_id: +b.dataset.anular });
+                if (r.ok) recargar(); else if (r.error) aviso(r.error);
+            }
+        });
+    }
+
+    const cerrarBarra = () => recuperando ? cancelarRecuperar() : deseleccionar();
+    document.getElementById('bCerrar').addEventListener('click', cerrarBarra);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarBarra(); });
     document.addEventListener('click', e => {
         if (sel && !e.target.closest('.agenda, .barra, .modal, .tabs-dias, .toolbar, .filtro-inst')) deseleccionar();
     });
@@ -674,7 +814,7 @@
             const texto = d.tipo !== 'fijo'
                 ? `¡Hola ${d.pila}! Te confirmo que se canceló tu clase del ${cuando(d.dia, d.fecha, d.hora)}.`
                 : modo === 'semana'
-                    ? `¡Hola ${d.pila}! Te confirmo que esta semana no tenés la clase del ${cuando(d.dia, d.fecha, d.hora)}. Las semanas siguientes seguís en tu horario de siempre.`
+                    ? `¡Hola ${d.pila}! Te confirmo que esta semana no tenés la clase del ${cuando(d.dia, d.fecha, d.hora)}. Te queda pendiente para recuperar: avisame qué día te queda bien. Las semanas siguientes seguís en tu horario de siempre.`
                     : `¡Hola ${d.pila}! Te confirmo que se dio de baja tu turno fijo de los ${d.dia.toLowerCase()} a las ${hh(d.hora)}.`;
             avisar('Turno quitado', d, texto);
         } else if (r.error) {
@@ -684,6 +824,11 @@
 
     // ── clicks en la grilla ──
     agenda.addEventListener('click', e => {
+        if (recuperando) {
+            const celda = e.target.closest('.celda');
+            if (celda) recuperarEn(celda);
+            return;
+        }
         const chip = e.target.closest('.chip');
         if (chip) {
             if (sel === chip) deseleccionar(); else seleccionar(chip);
@@ -697,7 +842,7 @@
     // ── arrastrar (compu) ──
     agenda.addEventListener('dragstart', e => {
         const chip = e.target.closest('.chip');
-        if (!chip) return;
+        if (!chip || recuperando) { e.preventDefault(); return; }
         seleccionar(chip);
         chip.classList.add('arrastrando');
         e.dataTransfer.effectAllowed = 'move';
@@ -765,6 +910,14 @@
         aplicarFiltro(filtroGuardado);
     } else {
         actualizarCupos();
+    }
+    // Recuperación en curso (por ejemplo, después de pasar a otra semana)
+    let recGuardada = null;
+    try { recGuardada = JSON.parse(sessionStorage.getItem('recuperando') || 'null'); } catch (e) {}
+    if (recGuardada) {
+        const f = PENDIENTES.find(p => p.id === recGuardada.id);
+        if (f) iniciarRecuperar(f);
+        else try { sessionStorage.removeItem('recuperando'); } catch (e) {}
     }
 })();
 </script>

@@ -1,10 +1,11 @@
 -- ============================================================
---  PILATES MANAGER — Schema v3.1
+--  PILATES MANAGER — Schema v3.2
 --  ATENCIÓN: este script BORRA todas las tablas. Solo se usa para crear
 --  una base nueva (app.py lo ejecuta si pilates.db no existe).
 --  Soporte multi-instructor por estudio
 -- ============================================================
 
+DROP TABLE IF EXISTS faltas;
 DROP TABLE IF EXISTS turnos_excepciones;
 DROP TABLE IF EXISTS pagos;
 DROP TABLE IF EXISTS turnos;
@@ -95,9 +96,11 @@ CREATE TABLE turnos (
                         ('Lunes','Martes','Miércoles','Jueves','Viernes','Sábado')),
     fecha           TEXT,
     hora            INTEGER NOT NULL CHECK (hora BETWEEN 7 AND 22),
+    recupera_falta_id INTEGER,          -- turno puntual que recupera una falta
     FOREIGN KEY (estudio_id)    REFERENCES estudios(id)     ON DELETE CASCADE,
     FOREIGN KEY (instructor_id) REFERENCES instructores(id) ON DELETE CASCADE,
-    FOREIGN KEY (alumno_id)     REFERENCES alumnos(id)      ON DELETE CASCADE
+    FOREIGN KEY (alumno_id)     REFERENCES alumnos(id)      ON DELETE CASCADE,
+    FOREIGN KEY (recupera_falta_id) REFERENCES faltas(id)   ON DELETE SET NULL
 );
 
 -- ------------------------------------------------------------
@@ -110,6 +113,27 @@ CREATE TABLE turnos_excepciones (
     fecha     TEXT    NOT NULL,
     UNIQUE (turno_id, fecha),
     FOREIGN KEY (turno_id) REFERENCES turnos(id) ON DELETE CASCADE
+);
+
+-- ------------------------------------------------------------
+-- 5c. FALTAS  (clases perdidas de un turno fijo).
+--     Pendiente de recuperar = no descartada y sin turno que la recupere
+--     (turnos.recupera_falta_id).
+-- ------------------------------------------------------------
+CREATE TABLE faltas (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    estudio_id     INTEGER NOT NULL,
+    alumno_id      INTEGER NOT NULL,
+    instructor_id  INTEGER NOT NULL,
+    turno_id       INTEGER,
+    fecha          TEXT    NOT NULL,
+    hora           INTEGER NOT NULL,
+    descartada     INTEGER DEFAULT 0,
+    creado_en      TEXT    DEFAULT (datetime('now')),
+    FOREIGN KEY (estudio_id)    REFERENCES estudios(id)     ON DELETE CASCADE,
+    FOREIGN KEY (alumno_id)     REFERENCES alumnos(id)      ON DELETE CASCADE,
+    FOREIGN KEY (instructor_id) REFERENCES instructores(id) ON DELETE CASCADE,
+    FOREIGN KEY (turno_id)      REFERENCES turnos(id)       ON DELETE SET NULL
 );
 
 -- ------------------------------------------------------------
@@ -137,7 +161,7 @@ CREATE TABLE configuracion (
     valor TEXT
 );
 
-INSERT INTO configuracion VALUES ('version_schema', '3.1');
+INSERT INTO configuracion VALUES ('version_schema', '3.2');
 
 -- ------------------------------------------------------------
 -- Índices
@@ -152,3 +176,4 @@ CREATE INDEX idx_pagos_instructor     ON pagos        (instructor_id);
 CREATE INDEX idx_pagos_alumno         ON pagos        (alumno_id);
 CREATE INDEX idx_pagos_mes            ON pagos        (mes);
 CREATE INDEX idx_excepciones_fecha    ON turnos_excepciones (fecha);
+CREATE INDEX idx_faltas_alumno        ON faltas       (alumno_id);

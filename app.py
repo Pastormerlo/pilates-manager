@@ -70,6 +70,23 @@ CREATE TABLE IF NOT EXISTS turnos_excepciones (
     FOREIGN KEY (turno_id) REFERENCES turnos(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_excepciones_fecha ON turnos_excepciones (fecha);
+
+CREATE TABLE IF NOT EXISTS faltas (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    estudio_id     INTEGER NOT NULL,
+    alumno_id      INTEGER NOT NULL,
+    instructor_id  INTEGER NOT NULL,
+    turno_id       INTEGER,
+    fecha          TEXT    NOT NULL,
+    hora           INTEGER NOT NULL,
+    descartada     INTEGER DEFAULT 0,
+    creado_en      TEXT    DEFAULT (datetime('now')),
+    FOREIGN KEY (estudio_id)    REFERENCES estudios(id)     ON DELETE CASCADE,
+    FOREIGN KEY (alumno_id)     REFERENCES alumnos(id)      ON DELETE CASCADE,
+    FOREIGN KEY (instructor_id) REFERENCES instructores(id) ON DELETE CASCADE,
+    FOREIGN KEY (turno_id)      REFERENCES turnos(id)       ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_faltas_alumno ON faltas (alumno_id);
 """
 
 
@@ -83,6 +100,10 @@ def preparar_db():
             print(f"Base de datos creada: {DATABASE}")
         else:
             db.executescript(MIGRACIONES)
+            columnas = [c[1] for c in db.execute("PRAGMA table_info(turnos)")]
+            if 'recupera_falta_id' not in columnas:
+                db.execute("ALTER TABLE turnos ADD COLUMN recupera_falta_id INTEGER "
+                           "REFERENCES faltas(id) ON DELETE SET NULL")
         db.commit()
     finally:
         db.close()
@@ -307,6 +328,37 @@ def deudores_del_mes(mes, iid=None):
            ORDER BY a.apellido, a.nombre""",
         (estudio_id(), iid, estudio_id(), mes)
     )
+
+
+def faltas_pendientes():
+    """Clases perdidas que todavía no se recuperaron. Admin ve todas; instructor, las suyas."""
+    return query(
+        f"""SELECT f.id, f.alumno_id, f.instructor_id, f.fecha, f.hora,
+                   a.nombre, a.apellido, a.telefono, i.nombre AS instructor_nombre
+            FROM faltas f
+            JOIN alumnos a ON a.id = f.alumno_id
+            JOIN instructores i ON i.id = f.instructor_id
+            WHERE f.estudio_id=? AND a.activo=1 AND f.descartada=0
+              AND NOT EXISTS (SELECT 1 FROM turnos t WHERE t.recupera_falta_id = f.id)
+              {'' if es_admin() else 'AND f.instructor_id=?'}
+            ORDER BY f.fecha, f.hora""",
+        (estudio_id(),) + (() if es_admin() else (instructor_id(),))
+    )
+
+
+def falta_editable(fid):
+    """Falta pendiente del estudio; si no es admin, solo las propias."""
+    pendientes = {f['id']: f for f in faltas_pendientes()}
+    return pendientes.get(parse_int(fid, -1))
+
+
+def registrar_falta(db, turno, fecha):
+    """Anota la clase perdida de un turno fijo en esa fecha. Devuelve el id de la falta."""
+    return db.execute(
+        "INSERT INTO faltas (estudio_id, alumno_id, instructor_id, turno_id, fecha, hora) VALUES (?,?,?,?,?,?)",
+        (turno['estudio_id'], turno['alumno_id'], turno['instructor_id'], turno['id'],
+         fecha.isoformat(), turno['hora'])
+    ).lastrowid
 
 
 # ============================================================
@@ -538,7 +590,7 @@ def agenda():
     filtro_inst = () if es_admin() else (iid,)
     cond_inst   = "" if es_admin() else "AND t.instructor_id=?"
     columnas = """t.id, t.tipo, t.dia_semana, t.fecha, t.hora, t.alumno_id, t.instructor_id,
-                  a.nombre, a.apellido, a.telefono, i.nombre AS instructor_nombre"""
+                  t.recupera_falta_id, a.nombre, a.apellido, a.telefono, i.nombre AS instructor_nombre"""
 
     turnos_fijos = query(
         f"""SELECT {columnas} FROM turnos t
@@ -601,6 +653,12 @@ def agenda():
         "SELECT id, nombre FROM instructores WHERE estudio_id=? AND activo=1 ORDER BY nombre", (eid,)
     ) if es_admin() else []
 
+    # Clases pendientes de recuperar (lista + cantidad por alumno para marcar las pastillas)
+    pendientes = [dict(f) for f in faltas_pendientes()]
+    pendientes_por_alumno = {}
+    for f in pendientes:
+        pendientes_por_alumno.setdefault(f['alumno_id'], []).append(f['id'])
+
     # Resumen (se muestra como "pastillas" arriba de la agenda)
     deudores = deudores_del_mes(mes_actual, None if es_admin() else iid)
     cobrado_mes = query(
@@ -624,6 +682,8 @@ def agenda():
         instructores=instructores_list,
         deudores=deudores,
         cobrado_mes=cobrado_mes,
+        pendientes=pendientes,
+        pendientes_por_alumno=pendientes_por_alumno,
         semana_anterior=(inicio - timedelta(days=7)).isoformat(),
         semana_siguiente=(inicio + timedelta(days=7)).isoformat(),
         es_admin=es_admin(),
@@ -728,9 +788,14 @@ def mover_turno():
         with db:
             db.execute("INSERT OR IGNORE INTO turnos_excepciones (turno_id, fecha) VALUES (?,?)",
                        (tid, origen.isoformat()))
+            # Queda registrada como falta ya recuperada: si después se quita la clase
+            # nueva, la falta vuelve a estar pendiente de recuperar.
+            fid = registrar_falta(db, turno, origen)
             db.execute(
-                "INSERT INTO turnos (estudio_id, instructor_id, alumno_id, tipo, fecha, hora) VALUES (?,?,?,?,?,?)",
-                (turno['estudio_id'], turno['instructor_id'], turno['alumno_id'], 'puntual', fecha.isoformat(), hora)
+                """INSERT INTO turnos (estudio_id, instructor_id, alumno_id, tipo, fecha, hora, recupera_falta_id)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (turno['estudio_id'], turno['instructor_id'], turno['alumno_id'], 'puntual',
+                 fecha.isoformat(), hora, fid)
             )
     elif turno['tipo'] == 'fijo':
         if dia == turno['dia_semana'] and hora == turno['hora']:
@@ -766,10 +831,72 @@ def quitar_turno():
         fecha = parse_fecha(data.get('fecha'))
         if not fecha or dia_de(fecha) != turno['dia_semana']:
             return jsonify({'ok': False, 'error': 'Fecha inválida'}), 400
-        execute("INSERT OR IGNORE INTO turnos_excepciones (turno_id, fecha) VALUES (?,?)",
-                (turno['id'], fecha.isoformat()))
+        db = get_db()
+        with db:
+            nueva = db.execute("INSERT OR IGNORE INTO turnos_excepciones (turno_id, fecha) VALUES (?,?)",
+                               (turno['id'], fecha.isoformat())).rowcount
+            if nueva:   # falta avisada → queda pendiente de recuperar
+                registrar_falta(db, turno, fecha)
     else:
         execute("DELETE FROM turnos WHERE id=?", (turno['id'],))
+    return jsonify({'ok': True})
+
+
+# ============================================================
+#  RECUPERACIÓN DE CLASES
+# ============================================================
+@app.route('/recuperar', methods=['POST'])
+@login_required
+def recuperar():
+    """Agenda la recuperación de una falta pendiente como turno puntual."""
+    data  = request.get_json(silent=True) or {}
+    falta = falta_editable(data.get('falta_id'))
+    hora  = parse_int(data.get('hora'))
+    fecha = parse_fecha(data.get('fecha'))
+
+    if not falta:
+        return jsonify({'ok': False, 'error': 'Esa clase ya no está pendiente de recuperar'}), 404
+    if hora not in HORAS or not fecha or not dia_de(fecha):
+        return jsonify({'ok': False, 'error': 'Horario inválido'}), 400
+    if not instructor_del_estudio(falta['instructor_id']):
+        return jsonify({'ok': False, 'error': 'El instructor de esa clase está inactivo'}), 409
+    if alumno_ocupado(falta['alumno_id'], hora, fecha=fecha):
+        return jsonify({'ok': False, 'error': 'El alumno ya tiene turno en ese horario'}), 409
+    if ocupacion_fecha(falta['instructor_id'], fecha, hora) >= CUPO_MAX:
+        return jsonify({'ok': False, 'error': f'Ese horario ya tiene {CUPO_MAX} alumnos'}), 409
+
+    execute(
+        """INSERT INTO turnos (estudio_id, instructor_id, alumno_id, tipo, fecha, hora, recupera_falta_id)
+           VALUES (?,?,?,?,?,?,?)""",
+        (estudio_id(), falta['instructor_id'], falta['alumno_id'], 'puntual', fecha.isoformat(), hora, falta['id'])
+    )
+    return jsonify({'ok': True})
+
+
+@app.route('/descartar_falta', methods=['POST'])
+@login_required
+def descartar_falta():
+    """La clase no se va a recuperar: deja de figurar como pendiente."""
+    falta = falta_editable((request.get_json(silent=True) or {}).get('falta_id'))
+    if not falta:
+        return jsonify({'ok': False, 'error': 'Esa clase ya no está pendiente'}), 404
+    execute("UPDATE faltas SET descartada=1 WHERE id=?", (falta['id'],))
+    return jsonify({'ok': True})
+
+
+@app.route('/anular_falta', methods=['POST'])
+@login_required
+def anular_falta():
+    """La falta se marcó por error: se borra y el alumno vuelve a su clase de esa fecha."""
+    falta = falta_editable((request.get_json(silent=True) or {}).get('falta_id'))
+    if not falta:
+        return jsonify({'ok': False, 'error': 'Esa clase ya no está pendiente'}), 404
+    origen = query("SELECT turno_id FROM faltas WHERE id=?", (falta['id'],), one=True)['turno_id']
+    db = get_db()
+    with db:
+        if origen:
+            db.execute("DELETE FROM turnos_excepciones WHERE turno_id=? AND fecha=?", (origen, falta['fecha']))
+        db.execute("DELETE FROM faltas WHERE id=?", (falta['id'],))
     return jsonify({'ok': True})
 
 
@@ -838,7 +965,12 @@ def alumnos():
         for aid, lista in horarios.items()
     }
 
-    return render_template('alumnos.html', alumnos=alumnos_data, buscar=buscar, horarios=horarios)
+    por_recuperar = {}
+    for f in faltas_pendientes():
+        por_recuperar[f['alumno_id']] = por_recuperar.get(f['alumno_id'], 0) + 1
+
+    return render_template('alumnos.html', alumnos=alumnos_data, buscar=buscar,
+                           horarios=horarios, por_recuperar=por_recuperar)
 
 
 @app.route('/agregar_alumno', methods=['POST'])
