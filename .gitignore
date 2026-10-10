@@ -1,0 +1,14 @@
+# Datos (nunca al repositorio: contienen información personal y médica)
+*.db
+*.db-journal
+static/uploads/
+
+# Secretos
+.secret_key
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

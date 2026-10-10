@@ -1,0 +1,677 @@
+{% extends 'layout.html' %}
+{% block container_class %}wide{% endblock %}
+{% block content %}
+<style>
+    .main-container.wide { max-width: 1600px; }
+
+    /* ── BARRA SUPERIOR ── */
+    .toolbar {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.75rem;
+    }
+    .semana { display: flex; align-items: center; gap: 0.4rem; }
+    .btn-sem {
+        width: 34px; height: 34px; border-radius: 10px;
+        border: 1.5px solid #E2E8E0; background: var(--white); color: var(--dark);
+        display: flex; align-items: center; justify-content: center;
+        text-decoration: none; font-size: 0.8rem; transition: all 0.15s;
+    }
+    .btn-sem:hover { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .rango { font-family: 'DM Serif Display', serif; font-size: 1.25rem; padding: 0 0.3rem; white-space: nowrap; }
+    .pastillas { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+    .pastilla {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        padding: 0.35rem 0.8rem; border-radius: 999px;
+        font-size: 0.78rem; font-weight: 500; text-decoration: none;
+        background: var(--white); color: var(--dark);
+        border: 1.5px solid #E2E8E0; cursor: pointer; transition: all 0.15s;
+        white-space: nowrap;
+    }
+    .pastilla:hover { border-color: var(--brand-light); color: var(--dark); }
+    .pastilla.roja  { background: #FFF1F1; border-color: #F5C2C2; color: #A93226; }
+    .pastilla.verde { background: var(--brand-pale); border-color: var(--brand-pale); color: var(--brand); }
+    .pastilla.activa { background: var(--dark); border-color: var(--dark); color: #fff; }
+    .filtro-inst { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+
+    /* ── GRILLA ── */
+    .agenda {
+        display: grid;
+        grid-template-columns: 52px repeat(6, minmax(0, 1fr));
+        background: var(--white);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: clip;
+        user-select: none;
+    }
+    .cab {
+        position: sticky; top: 0; z-index: 4;
+        background: var(--dark); color: #fff;
+        text-align: center; padding: 0.55rem 0.3rem;
+        font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .cab span { display: block; font-weight: 400; opacity: 0.6; font-size: 0.68rem; letter-spacing: 0; }
+    .cab.hoy { background: var(--brand); }
+    .cab.hoy span { opacity: 0.9; }
+    .hora {
+        background: #F8FAF7; border-right: 2px solid #E8EDE6; border-bottom: 1px solid #EEF2EC;
+        display: flex; align-items: flex-start; justify-content: center;
+        padding-top: 6px; font-weight: 600; font-size: 0.72rem; color: var(--mid);
+    }
+    .celda {
+        position: relative;
+        min-height: 62px;
+        padding: 3px 3px 16px;
+        border-right: 1px solid #EEF2EC; border-bottom: 1px solid #EEF2EC;
+        cursor: pointer;
+        transition: background 0.1s;
+    }
+    .celda.hoy { background: #FAFDF8; }
+    .celda:hover { background: #F4F8F2; }
+    .celda::after {
+        content: '+'; position: absolute; left: 6px; bottom: 0;
+        font-size: 0.85rem; color: var(--brand-light); opacity: 0; transition: opacity 0.1s;
+    }
+    .celda:hover::after { opacity: 1; }
+    .cupo { position: absolute; right: 5px; bottom: 1px; font-size: 0.62rem; color: #9AA59A; font-weight: 600; }
+    .cupo.lleno { color: #C62828; }
+
+    /* Modo mover: los horarios se vuelven destinos */
+    .agenda.moviendo .celda { cursor: copy; }
+    .agenda.moviendo .celda::after { content: ''; }
+    .agenda.moviendo .celda:hover,
+    .celda.drop { background: #E1F3E6 !important; box-shadow: inset 0 0 0 2px var(--brand-light); }
+
+    /* ── PASTILLA DE ALUMNO ── */
+    .chip {
+        display: flex; align-items: center; gap: 5px;
+        background: var(--brand-pale);
+        border-left: 3px solid var(--brand);
+        border-radius: 6px;
+        padding: 3px 6px;
+        margin-bottom: 3px;
+        font-size: 0.74rem; font-weight: 500; line-height: 1.25;
+        cursor: grab;
+        transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .chip:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+    .chip.puntual { background: #FFF0DC; border-left-color: var(--accent); }
+    .chip .punto { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: transparent; }
+    .chip.debe .punto { background: #D63B3B; }
+    .chip .nom { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chip .nom-largo { display: none; }
+    .chip .ini {
+        font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+        background: rgba(0,0,0,0.08); border-radius: 4px; padding: 0 4px; flex-shrink: 0;
+    }
+    .chip.sel {
+        background: var(--dark); color: #fff; border-left-color: var(--brand-light);
+        box-shadow: 0 4px 14px rgba(0,0,0,0.3); transform: scale(1.03);
+    }
+    .chip.arrastrando { opacity: 0.4; }
+    .chip.oculto { display: none; }
+
+    .leyenda { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.6rem; font-size: 0.74rem; color: var(--mid); }
+    .leyenda .m { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+    /* ── BARRA DE ACCIONES (alumno seleccionado) ── */
+    .barra {
+        position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
+        z-index: 1040;
+        width: min(96vw, 720px);
+        background: var(--dark); color: #fff;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+        padding: 0.65rem 0.75rem 0.65rem 1rem;
+        display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+    }
+    .barra[hidden] { display: none; }
+    .barra-info { flex: 1; min-width: 160px; }
+    .barra-nombre { font-weight: 600; font-size: 0.95rem; }
+    .barra-det { font-size: 0.74rem; opacity: 0.7; }
+    .barra-hint { font-size: 0.74rem; color: var(--brand-light); width: 100%; order: 3; }
+    .barra-acc { display: flex; gap: 0.35rem; }
+    .bb {
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+        min-width: 52px; height: 46px; padding: 0 6px;
+        border-radius: 10px; border: none;
+        background: rgba(255,255,255,0.09); color: #fff;
+        font-size: 0.62rem; text-decoration: none; cursor: pointer;
+    }
+    .bb i { font-size: 0.95rem; }
+    .bb:hover { background: rgba(255,255,255,0.18); color: #fff; }
+    .bb.rojo { color: #ff9d9d; }
+    .bb.cerrar { min-width: 40px; }
+    body.con-barra { padding-bottom: 120px; }
+
+    /* ── PESTAÑAS DE DÍA (celular) ── */
+    .tabs-dias {
+        display: flex; gap: 4px;
+        position: sticky; top: 0; z-index: 5;
+        background: var(--bg); padding: 4px 0 8px;
+    }
+    .tab-dia {
+        flex: 1; min-width: 0;
+        border-radius: 12px; border: 1.5px solid #E2E8E0; background: var(--white);
+        padding: 5px 2px; line-height: 1.15;
+        display: flex; flex-direction: column; align-items: center;
+        font-size: 0.68rem; color: var(--mid);
+    }
+    .tab-dia b { font-size: 1rem; color: var(--dark); }
+    .tab-dia .cnt { font-size: 0.6rem; }
+    .tab-dia.hoy { border-color: var(--brand-light); }
+    .tab-dia.activo { background: var(--dark); border-color: var(--dark); color: rgba(255,255,255,0.7); }
+    .tab-dia.activo b { color: #fff; }
+
+    @media (min-width: 768px) {
+        .tabs-dias { display: none; }
+    }
+    @media (max-width: 767px) {
+        .rango { font-size: 1.05rem; }
+        .agenda { grid-template-columns: 50px minmax(0, 1fr); }
+        .cab { display: none; }
+        {% for d in range(6) %}
+        .agenda .celda.d{{ d }} { display: none; }
+        .agenda[data-d="{{ d }}"] .celda.d{{ d }} { display: flex; }
+        {% endfor %}
+        .celda {
+            flex-wrap: wrap; align-content: flex-start; gap: 5px;
+            min-height: 56px; padding: 6px 6px 18px;
+        }
+        .chip { margin: 0; padding: 7px 10px; font-size: 0.84rem; border-radius: 8px; }
+        .chip .nom { display: none; }
+        .chip .nom-largo { display: inline; }
+        .barra { bottom: 8px; }
+        .barra-hint { order: 0; width: auto; flex-basis: 100%; }
+        .barra-acc { width: 100%; justify-content: space-between; }
+        .bb { flex: 1; }
+    }
+</style>
+
+<!-- ── BARRA SUPERIOR ── -->
+<div class="toolbar">
+    <div class="semana">
+        <a href="{{ url_for('agenda', fecha=semana_anterior) }}" class="btn-sem" title="Semana anterior"><i class="fas fa-chevron-left"></i></a>
+        <div class="rango">{{ inicio.strftime('%d/%m') }} – {{ fin.strftime('%d/%m') }}</div>
+        <a href="{{ url_for('agenda', fecha=semana_siguiente) }}" class="btn-sem" title="Semana siguiente"><i class="fas fa-chevron-right"></i></a>
+        {% if not (inicio <= hoy <= fin) %}
+        <a href="{{ url_for('agenda') }}" class="pastilla ms-1">Hoy</a>
+        {% endif %}
+    </div>
+    <div class="pastillas">
+        {% if deudores %}
+        <a href="{{ url_for('facturacion') }}" class="pastilla roja" title="Alumnos sin pago este mes">
+            <i class="fas fa-circle" style="font-size:0.5rem;"></i>{{ deudores|length }} sin pagar
+        </a>
+        {% else %}
+        <a href="{{ url_for('facturacion') }}" class="pastilla verde"><i class="fas fa-check"></i>Todos pagaron</a>
+        {% endif %}
+        <a href="{{ url_for('facturacion') }}" class="pastilla d-none d-sm-inline-flex" title="Cobrado este mes">
+            <i class="fas fa-wallet" style="color:var(--brand)"></i>${{ "{:,.0f}".format(cobrado_mes).replace(',', '.') }}
+        </a>
+        <button type="button" class="btn-brand" onclick="abrirNuevo()">
+            <i class="fas fa-plus me-1"></i>Turno
+        </button>
+    </div>
+</div>
+
+{% if multi %}
+<div class="filtro-inst" id="filtroInst">
+    <button type="button" class="pastilla activa" data-inst="">Todos</button>
+    {% for i in instructores %}
+    <button type="button" class="pastilla" data-inst="{{ i.id }}">{{ i.nombre }}</button>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ── PESTAÑAS DE DÍA (solo celular) ── -->
+<div class="tabs-dias" id="tabs">
+    {% for d in range(6) %}
+    <button type="button" class="tab-dia {% if fechas[d] == hoy %}hoy{% endif %}" data-d="{{ d }}">
+        {{ dias_corto[d] }}<b>{{ fechas[d].day }}</b><span class="cnt" data-cnt="{{ d }}">{{ por_dia[d] }}</span>
+    </button>
+    {% endfor %}
+</div>
+
+<!-- ── GRILLA SEMANAL ── -->
+<div class="agenda" id="agenda" data-d="0">
+    <div class="cab"></div>
+    {% for d in range(6) %}
+    <div class="cab {% if fechas[d] == hoy %}hoy{% endif %}">{{ dias[d] }}<span>{{ fechas[d].strftime('%d/%m') }}</span></div>
+    {% endfor %}
+
+    {% for h in horas %}
+    <div class="hora">{{ "%02d"|format(h) }}:00</div>
+    {% for d in range(6) %}
+    <div class="celda d{{ d }} {% if fechas[d] == hoy %}hoy{% endif %}"
+         data-d="{{ d }}" data-dia="{{ dias[d] }}" data-fecha="{{ fechas[d].isoformat() }}" data-hora="{{ h }}">
+        {% for t in celdas[(d, h)] %}
+        <div class="chip {{ t.tipo }} {% if not t.pagado %}debe{% endif %}" draggable="true"
+             data-id="{{ t.id }}" data-tipo="{{ t.tipo }}" data-fecha="{{ t.fecha_turno }}"
+             data-hora="{{ t.hora }}" data-dia="{{ dias[d] }}"
+             data-alumno="{{ t.alumno_id }}" data-inst="{{ t.instructor_id }}"
+             data-inst-nombre="{{ t.instructor_nombre }}"
+             data-nombre="{{ t.apellido }}, {{ t.nombre }}"
+             data-tel="{{ t.telefono or '' }}" data-pagado="{{ 1 if t.pagado else 0 }}">
+            <span class="punto"></span>
+            <span class="nom">{{ t.apellido }} {{ t.nombre[:1] }}.</span>
+            <span class="nom-largo">{{ t.apellido }}, {{ t.nombre }}</span>
+            {% if multi %}<span class="ini">{{ t.instructor_nombre[:2] }}</span>{% endif %}
+        </div>
+        {% endfor %}
+        <span class="cupo"></span>
+    </div>
+    {% endfor %}
+    {% endfor %}
+</div>
+
+<div class="leyenda">
+    <span><span class="m" style="background:var(--brand-pale);border-left:3px solid var(--brand);"></span>Fijo semanal</span>
+    <span><span class="m" style="background:#FFF0DC;border-left:3px solid var(--accent);"></span>Solo esa fecha</span>
+    <span><span class="m" style="background:#D63B3B;border-radius:50%;width:8px;height:8px;"></span>No pagó este mes</span>
+    <span><i class="fas fa-hand-pointer me-1"></i>Tocá o arrastrá un alumno para moverlo · tocá un horario vacío para agregar</span>
+</div>
+
+<!-- ── BARRA DE ACCIONES ── -->
+<div class="barra" id="barra" hidden>
+    <div class="barra-info">
+        <div class="barra-nombre" id="bNombre"></div>
+        <div class="barra-det" id="bDet"></div>
+    </div>
+    <div class="barra-hint"><i class="fas fa-arrows-alt me-1"></i>Tocá otro horario (o arrastrá) para moverlo</div>
+    <div class="barra-acc">
+        <a class="bb" id="bFicha" href="#"><i class="fas fa-id-card"></i>Ficha</a>
+        <a class="bb" id="bCobrar" href="#"><i class="fas fa-dollar-sign"></i>Cobrar</a>
+        <a class="bb" id="bTel" href="#"><i class="fas fa-phone"></i>Llamar</a>
+        <button type="button" class="bb rojo" id="bQuitar"><i class="fas fa-trash-alt"></i>Quitar</button>
+        <button type="button" class="bb cerrar" id="bCerrar" title="Cancelar (Esc)"><i class="fas fa-times"></i></button>
+    </div>
+</div>
+
+<!-- ── MODAL: ¿solo esta semana o siempre? ── -->
+<div class="modal fade" id="modalModo" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold" id="mmTitulo"></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3" style="font-size:0.88rem;" id="mmTexto"></p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn-brand py-2" id="mmSemana" data-modo="semana"></button>
+                    <button type="button" class="btn-ghost py-2" id="mmSiempre" data-modo="siempre"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: NUEVO TURNO ── -->
+<div class="modal fade" id="modalTurno" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="{{ url_for('agregar_turno') }}" method="POST">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <input type="hidden" name="fecha_ref" value="{{ inicio.isoformat() }}">
+                <div class="modal-header">
+                    <h6 class="modal-title fw-bold"><i class="fas fa-calendar-plus me-2"></i>Nuevo turno</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    {% if alumnos %}
+                    <div class="mb-3">
+                        <label class="small">Alumno *</label>
+                        <select name="alumno_id" id="ntAlumno" class="form-select" required>
+                            <option value="">— Seleccionar —</option>
+                            {% for a in alumnos %}
+                            <option value="{{ a.id }}">{{ a.apellido }}, {{ a.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                        <a href="{{ url_for('alumnos') }}#nuevo" class="d-inline-block mt-1" style="font-size:0.75rem;">+ Registrar alumno nuevo</a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning alert-custom">
+                        Todavía no hay alumnos. <a href="{{ url_for('alumnos') }}#nuevo">Registrá el primero</a>.
+                    </div>
+                    {% endif %}
+
+                    {% if es_admin %}
+                    <div class="mb-3">
+                        <label class="small">Instructor *</label>
+                        <select name="instructor_id" id="ntInstructor" class="form-select" required>
+                            {% for i in instructores %}
+                            <option value="{{ i.id }}" {% if i.id == mi_instructor_id %}selected{% endif %}>{{ i.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label class="small">Tipo de turno</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="tipo" id="tipo_fijo" value="fijo" checked>
+                                <label class="form-check-label" for="tipo_fijo" style="font-size:0.85rem;">Fijo (todas las semanas)</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="tipo" id="tipo_puntual" value="puntual">
+                                <label class="form-check-label" for="tipo_puntual" style="font-size:0.85rem;">Solo una fecha</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-7" id="campo_fijo">
+                            <label class="small">Día</label>
+                            <select name="dia_semana" id="ntDia" class="form-select">
+                                {% for d in dias %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-7" id="campo_puntual" hidden>
+                            <label class="small">Fecha</label>
+                            <input type="date" name="fecha" id="ntFecha" class="form-control" value="{{ inicio.isoformat() }}">
+                        </div>
+                        <div class="col-5">
+                            <label class="small">Hora</label>
+                            <select name="hora" id="ntHora" class="form-select">
+                                {% for h in horas %}<option value="{{ h }}">{{ "%02d"|format(h) }}:00</option>{% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn-brand" {% if not alumnos %}disabled{% endif %}>
+                        <i class="fas fa-check me-1"></i>Agregar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+    const CSRF   = document.querySelector('meta[name="csrf-token"]').content;
+    const CUPO   = {{ cupo_max }};
+    const MULTI  = {{ 'true' if multi else 'false' }};
+    const HOY_D  = {{ hoy.weekday() if inicio <= hoy <= fin else 0 }};
+    const agenda = document.getElementById('agenda');
+    const barra  = document.getElementById('barra');
+    const tabs   = [...document.querySelectorAll('.tab-dia')];
+    const celdas = [...agenda.querySelectorAll('.celda')];
+    let sel = null;          // pastilla seleccionada
+    let filtroInst = '';
+
+    // ── utilidades ──
+    const ddmm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+    const hh   = h => String(h).padStart(2, '0') + ':00';
+
+    function aviso(msg, tipo = 'danger') {
+        let zona = document.querySelector('.toast-zona');
+        if (!zona) {
+            zona = document.createElement('div');
+            zona.className = 'toast-zona';
+            document.body.appendChild(zona);
+        }
+        const div = document.createElement('div');
+        div.className = `alert alert-${tipo} alert-custom shadow mb-2`;
+        div.textContent = msg;
+        zona.appendChild(div);
+        setTimeout(() => div.remove(), 4000);
+    }
+
+    async function post(url, body) {
+        try {
+            const r = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                body: JSON.stringify(body)
+            });
+            if (r.status === 401) { location.reload(); return { ok: false }; }
+            return await r.json();
+        } catch (e) {
+            return { ok: false, error: 'No se pudo conectar. Revisá la conexión.' };
+        }
+    }
+
+    // ── estado entre recargas (día visible, scroll, filtro) ──
+    function guardarEstado() {
+        try {
+            sessionStorage.setItem('agenda', JSON.stringify({
+                url: location.href, d: agenda.dataset.d, y: window.scrollY
+            }));
+        } catch (e) {}
+    }
+    function recargar() { guardarEstado(); location.reload(); }
+
+    // ── días (celular) ──
+    function elegirDia(d) {
+        agenda.dataset.d = d;
+        tabs.forEach(t => t.classList.toggle('activo', t.dataset.d == d));
+    }
+    tabs.forEach(t => t.addEventListener('click', () => elegirDia(t.dataset.d)));
+
+    // ── filtro por instructor ──
+    function aplicarFiltro(id) {
+        filtroInst = id;
+        agenda.querySelectorAll('.chip').forEach(c =>
+            c.classList.toggle('oculto', !!id && c.dataset.inst !== id));
+        document.querySelectorAll('#filtroInst .pastilla').forEach(b =>
+            b.classList.toggle('activa', b.dataset.inst === id));
+        if (sel && sel.classList.contains('oculto')) deseleccionar();
+        try { localStorage.setItem('agendaFiltro', id); } catch (e) {}
+        actualizarCupos();
+    }
+    document.querySelectorAll('#filtroInst .pastilla').forEach(b =>
+        b.addEventListener('click', () => aplicarFiltro(b.dataset.inst)));
+
+    function actualizarCupos() {
+        const unico = !MULTI || !!filtroInst;   // el cupo es por instructor
+        const porDia = [0, 0, 0, 0, 0, 0];
+        celdas.forEach(c => {
+            const n = c.querySelectorAll('.chip:not(.oculto)').length;
+            const badge = c.querySelector('.cupo');
+            badge.textContent = n ? (unico ? `${n}/${CUPO}` : n) : '';
+            badge.classList.toggle('lleno', unico && n >= CUPO);
+            porDia[c.dataset.d] += n;
+        });
+        document.querySelectorAll('[data-cnt]').forEach(s => {
+            const n = porDia[s.dataset.cnt];
+            s.textContent = n ? `${n} turno${n === 1 ? '' : 's'}` : '—';
+        });
+    }
+
+    // ── selección ──
+    function seleccionar(chip) {
+        if (sel) sel.classList.remove('sel');
+        sel = chip;
+        chip.classList.add('sel');
+        agenda.classList.add('moviendo');
+
+        const d = chip.dataset;
+        document.getElementById('bNombre').textContent = d.nombre;
+        const partes = [
+            d.tipo === 'fijo' ? `Fijo · ${d.dia} ${hh(d.hora)}` : `Solo el ${d.dia.toLowerCase()} ${ddmm(d.fecha)} · ${hh(d.hora)}`,
+            d.pagado === '1' ? 'Pagó el mes' : 'No pagó el mes'
+        ];
+        if (MULTI) partes.splice(1, 0, d.instNombre);
+        document.getElementById('bDet').textContent = partes.join(' · ');
+        document.getElementById('bFicha').href  = `{{ url_for('alumnos') }}#ficha-${d.alumno}`;
+        document.getElementById('bCobrar').href = `{{ url_for('facturacion') }}?alumno=${d.alumno}`;
+        const tel = document.getElementById('bTel');
+        tel.hidden = !d.tel;
+        tel.href = d.tel ? 'tel:' + d.tel.replace(/[^\d+]/g, '') : '#';
+        barra.hidden = false;
+        document.body.classList.add('con-barra');
+    }
+
+    function deseleccionar() {
+        if (sel) sel.classList.remove('sel');
+        sel = null;
+        agenda.classList.remove('moviendo');
+        barra.hidden = true;
+        document.body.classList.remove('con-barra');
+    }
+    document.getElementById('bCerrar').addEventListener('click', deseleccionar);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') deseleccionar(); });
+    document.addEventListener('click', e => {
+        if (sel && !e.target.closest('.agenda, .barra, .modal, .tabs-dias, .toolbar, .filtro-inst')) deseleccionar();
+    });
+
+    // ── pregunta "solo esta semana / siempre" ──
+    const modalModo = new bootstrap.Modal(document.getElementById('modalModo'));
+    function preguntar({ titulo, texto, semana, siempre }) {
+        return new Promise(resolve => {
+            let respuesta = null;
+            const el = document.getElementById('modalModo');
+            document.getElementById('mmTitulo').textContent = titulo;
+            document.getElementById('mmTexto').textContent = texto;
+            const bS = document.getElementById('mmSemana');
+            const bA = document.getElementById('mmSiempre');
+            bS.hidden = !semana; bS.textContent = semana || '';
+            bA.textContent = siempre;
+            const elegir = e => { respuesta = e.currentTarget.dataset.modo; modalModo.hide(); };
+            bS.onclick = elegir; bA.onclick = elegir;
+            el.addEventListener('hidden.bs.modal', () => resolve(respuesta), { once: true });
+            modalModo.show();
+        });
+    }
+
+    // ── mover ──
+    async function moverA(celda) {
+        const chip = sel;
+        if (!chip) return;
+        if (celda === chip.parentElement) { deseleccionar(); return; }
+        const d = chip.dataset;
+        const destino = `${celda.dataset.dia} ${ddmm(celda.dataset.fecha)} ${hh(celda.dataset.hora)}`;
+        const body = { id: d.id, fecha: celda.dataset.fecha, hora: +celda.dataset.hora, fecha_origen: d.fecha };
+
+        if (d.tipo === 'fijo') {
+            const modo = await preguntar({
+                titulo: 'Mover turno fijo',
+                texto: `${d.nombre}: de ${d.dia} ${hh(d.hora)} a ${destino}`,
+                semana: `Solo esta semana (${ddmm(celda.dataset.fecha)})`,
+                siempre: `Todas las semanas → ${celda.dataset.dia} ${hh(celda.dataset.hora)}`
+            });
+            if (!modo) return;
+            body.modo = modo;
+        }
+
+        const r = await post('{{ url_for("mover_turno") }}', body);
+        if (r.ok) {
+            celda.insertBefore(chip, celda.querySelector('.cupo'));
+            recargar();
+        } else if (r.error) {
+            aviso(r.error);
+        }
+    }
+
+    // ── quitar ──
+    document.getElementById('bQuitar').addEventListener('click', async () => {
+        if (!sel) return;
+        const d = sel.dataset;
+        const modo = await preguntar(d.tipo === 'fijo' ? {
+            titulo: 'Quitar turno',
+            texto: `${d.nombre} · ${d.dia} ${hh(d.hora)}`,
+            semana: `Solo esta semana (falta el ${ddmm(d.fecha)})`,
+            siempre: 'Quitar el turno fijo para siempre'
+        } : {
+            titulo: 'Quitar turno',
+            texto: `${d.nombre} · ${d.dia} ${ddmm(d.fecha)} ${hh(d.hora)}`,
+            siempre: 'Quitar turno'
+        });
+        if (!modo) return;
+        const r = await post('{{ url_for("quitar_turno") }}', { id: d.id, modo, fecha: d.fecha });
+        if (r.ok) recargar(); else if (r.error) aviso(r.error);
+    });
+
+    // ── clicks en la grilla ──
+    agenda.addEventListener('click', e => {
+        const chip = e.target.closest('.chip');
+        if (chip) {
+            if (sel === chip) deseleccionar(); else seleccionar(chip);
+            return;
+        }
+        const celda = e.target.closest('.celda');
+        if (!celda) return;
+        if (sel) moverA(celda); else abrirNuevo(celda);
+    });
+
+    // ── arrastrar (compu) ──
+    agenda.addEventListener('dragstart', e => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        seleccionar(chip);
+        chip.classList.add('arrastrando');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', chip.dataset.id);
+    });
+    agenda.addEventListener('dragend', () => {
+        agenda.querySelectorAll('.arrastrando, .drop').forEach(el => el.classList.remove('arrastrando', 'drop'));
+    });
+    agenda.addEventListener('dragover', e => {
+        const celda = e.target.closest('.celda');
+        if (!celda || !sel) return;
+        e.preventDefault();
+        if (!celda.classList.contains('drop')) {
+            agenda.querySelectorAll('.drop').forEach(el => el.classList.remove('drop'));
+            celda.classList.add('drop');
+        }
+    });
+    agenda.addEventListener('drop', e => {
+        const celda = e.target.closest('.celda');
+        if (!celda) return;
+        e.preventDefault();
+        celda.classList.remove('drop');
+        moverA(celda);
+    });
+
+    // ── nuevo turno ──
+    const modalTurno = new bootstrap.Modal(document.getElementById('modalTurno'));
+    const tipoFijo = document.getElementById('tipo_fijo');
+    function toggleTipo() {
+        document.getElementById('campo_fijo').hidden    = !tipoFijo.checked;
+        document.getElementById('campo_puntual').hidden =  tipoFijo.checked;
+    }
+    document.querySelectorAll('input[name="tipo"]').forEach(r => r.addEventListener('change', toggleTipo));
+
+    window.abrirNuevo = function (celda) {
+        if (celda) {
+            document.getElementById('ntDia').value   = celda.dataset.dia;
+            document.getElementById('ntFecha').value = celda.dataset.fecha;
+            document.getElementById('ntHora').value  = celda.dataset.hora;
+        }
+        const inst = document.getElementById('ntInstructor');
+        if (inst && filtroInst) inst.value = filtroInst;
+        modalTurno.show();
+    };
+    document.getElementById('modalTurno').addEventListener('shown.bs.modal', () => {
+        const a = document.getElementById('ntAlumno');
+        if (a) a.focus();
+    });
+
+    // ── inicio ──
+    let estado = null;
+    try {
+        estado = JSON.parse(sessionStorage.getItem('agenda') || 'null');
+        sessionStorage.removeItem('agenda');
+    } catch (e) {}
+    if (estado && estado.url === location.href) {
+        elegirDia(estado.d);
+        window.scrollTo(0, estado.y || 0);
+    } else {
+        elegirDia(HOY_D);
+    }
+    let filtroGuardado = '';
+    try { filtroGuardado = localStorage.getItem('agendaFiltro') || ''; } catch (e) {}
+    if (MULTI && document.querySelector(`#filtroInst [data-inst="${CSS.escape(filtroGuardado)}"]`)) {
+        aplicarFiltro(filtroGuardado);
+    } else {
+        actualizarCupos();
+    }
+})();
+</script>
+{% endblock %}

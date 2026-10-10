@@ -1,0 +1,261 @@
+{% extends 'layout.html' %}
+{% macro campos(a=None, sufijo='nuevo') %}
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="small">Nombre *</label>
+        <input type="text" name="nombre" class="form-control" value="{{ a.nombre if a else '' }}" required>
+    </div>
+    <div class="col-md-6">
+        <label class="small">Apellido *</label>
+        <input type="text" name="apellido" class="form-control" value="{{ a.apellido if a else '' }}" required>
+    </div>
+    <div class="col-md-4">
+        <label class="small">DNI</label>
+        <input type="text" name="dni" class="form-control" value="{{ (a.dni or '') if a else '' }}">
+    </div>
+    <div class="col-md-4">
+        <label class="small">Fecha de nacimiento</label>
+        <input type="date" name="fecha_nacimiento" class="form-control" value="{{ (a.fecha_nacimiento or '') if a else '' }}">
+    </div>
+    <div class="col-md-4">
+        <label class="small">Sexo</label>
+        <select name="sexo" class="form-select">
+            <option value="">— opcional —</option>
+            <option value="F" {% if a and a.sexo == 'F' %}selected{% endif %}>Femenino</option>
+            <option value="M" {% if a and a.sexo == 'M' %}selected{% endif %}>Masculino</option>
+            <option value="X" {% if a and a.sexo == 'X' %}selected{% endif %}>No binario</option>
+        </select>
+    </div>
+    <div class="col-12">
+        <label class="small">Domicilio</label>
+        <input type="text" name="domicilio" class="form-control" value="{{ (a.domicilio or '') if a else '' }}">
+    </div>
+    <div class="col-md-6">
+        <label class="small">Teléfono</label>
+        <input type="tel" name="telefono" class="form-control" value="{{ (a.telefono or '') if a else '' }}">
+    </div>
+    <div class="col-md-6">
+        <label class="small">Contacto de emergencia</label>
+        <input type="text" name="contacto_emergencia" class="form-control" value="{{ (a.contacto_emergencia or '') if a else '' }}">
+    </div>
+    <div class="col-md-6">
+        <label class="small">Obra social</label>
+        <input type="text" name="obra_social" class="form-control" value="{{ (a.obra_social or '') if a else '' }}">
+    </div>
+    <div class="col-md-6">
+        <label class="small">Médico de cabecera</label>
+        <input type="text" name="medico_cabecera" class="form-control" value="{{ (a.medico_cabecera or '') if a else '' }}">
+    </div>
+    <div class="col-12">
+        <label class="small">Patologías de columna</label>
+        <textarea name="patologias_columna" class="form-control" rows="2">{{ (a.patologias_columna or '') if a else '' }}</textarea>
+    </div>
+    <div class="col-12">
+        <label class="small">Cirugías</label>
+        <textarea name="cirugias" class="form-control" rows="2">{{ (a.cirugias or '') if a else '' }}</textarea>
+    </div>
+    <div class="col-12">
+        <label class="small">Notas médicas</label>
+        <textarea name="notas_medicas" class="form-control" rows="2">{{ (a.notas_medicas or '') if a else '' }}</textarea>
+    </div>
+    <div class="col-12">
+        <label class="small">Observaciones generales</label>
+        <textarea name="observaciones" class="form-control" rows="2">{{ (a.observaciones or '') if a else '' }}</textarea>
+    </div>
+    <div class="col-12">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="apto_medico" id="apto_{{ sufijo }}" value="1"
+                   {% if a and a.apto_medico %}checked{% endif %}>
+            <label class="form-check-label" for="apto_{{ sufijo }}" style="font-size:0.85rem;">Tiene apto médico</label>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+<style>
+    .alumno-card {
+        background: var(--white);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 1rem 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        transition: box-shadow 0.2s;
+        margin-bottom: 0.6rem;
+    }
+    .alumno-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    .alumno-avatar {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        background: var(--brand-pale);
+        color: var(--brand);
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 600; font-size: 1rem;
+        flex-shrink: 0;
+    }
+    .alumno-nombre { font-weight: 600; font-size: 0.92rem; }
+    .alumno-sub { font-size: 0.78rem; color: var(--mid); }
+    .horario-tag {
+        display: inline-block; background: var(--brand-pale); color: var(--brand);
+        border-radius: 6px; padding: 1px 6px; font-size: 0.7rem; font-weight: 600; margin: 3px 2px 0 0;
+    }
+    .btn-accion {
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.8rem;
+        border: none; cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+    .btn-editar { background: #E8F4FD; color: #2980B9; }
+    .btn-editar:hover { background: #2980B9; color: #fff; }
+    .btn-borrar { background: #FFE5E5; color: #C0392B; }
+    .btn-borrar:hover { background: #C0392B; color: #fff; }
+    .search-bar { position: relative; }
+    .search-bar i {
+        position: absolute; left: 12px; top: 50%;
+        transform: translateY(-50%);
+        color: var(--mid); font-size: 0.85rem;
+    }
+    .search-bar input { padding-left: 36px; }
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--mid); }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 0.8rem; display: block; }
+</style>
+
+<!-- HEADER -->
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="mb-0" style="font-family:'DM Serif Display',serif;">Alumnos</h4>
+        <span class="text-muted" style="font-size:0.8rem;">
+            {{ alumnos|length }} alumno{{ 's' if alumnos|length != 1 }}
+            {% if buscar %} · búsqueda: "<strong>{{ buscar }}</strong>"{% endif %}
+        </span>
+    </div>
+    <button class="btn-brand" data-bs-toggle="modal" data-bs-target="#modal-nuevo">
+        <i class="fas fa-user-plus me-1"></i> Nuevo alumno
+    </button>
+</div>
+
+<!-- BUSCADOR -->
+<div class="search-bar mb-3">
+    <i class="fas fa-search"></i>
+    <form method="GET" action="{{ url_for('alumnos') }}">
+        <input type="search" name="q" class="form-control"
+               placeholder="Buscar por nombre, apellido o DNI..." value="{{ buscar }}">
+    </form>
+</div>
+
+<!-- LISTA DE ALUMNOS -->
+{% if alumnos %}
+    {% for a in alumnos %}
+    <div class="alumno-card">
+        <div class="alumno-avatar">{{ a.nombre[:1]|upper }}{{ a.apellido[:1]|upper }}</div>
+        <div style="flex:1; min-width:0;">
+            <div class="alumno-nombre">{{ a.apellido }}, {{ a.nombre }}</div>
+            <div class="alumno-sub">
+                {% if a.telefono %}<i class="fas fa-phone me-1"></i>{{ a.telefono }}{% endif %}
+                {% if a.telefono and a.obra_social %} &middot; {% endif %}
+                {% if a.obra_social %}<i class="fas fa-hospital me-1"></i>{{ a.obra_social }}{% endif %}
+                {% if not a.telefono and not a.obra_social %}Sin datos de contacto{% endif %}
+            </div>
+            <div>
+                {% for h in horarios.get(a.id, []) %}<span class="horario-tag">{{ h }}</span>{% else %}<span class="alumno-sub">Sin turno fijo</span>{% endfor %}
+            </div>
+        </div>
+        <div class="d-flex gap-1 align-items-center flex-shrink-0">
+            {% if a.apto_medico %}
+                <span class="badge-verde me-1 d-none d-sm-inline"><i class="fas fa-check me-1"></i>Apto</span>
+            {% endif %}
+            <button class="btn-accion btn-editar" data-bs-toggle="modal" data-bs-target="#ficha-{{ a.id }}" title="Ver / editar ficha">
+                <i class="fas fa-edit"></i>
+            </button>
+            <form action="{{ url_for('eliminar_alumno', aid=a.id) }}" method="POST" class="m-0"
+                  data-confirmar="¿Dar de baja a {{ a.nombre }} {{ a.apellido }}? Se liberan sus turnos.">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="btn-accion btn-borrar" title="Dar de baja"><i class="fas fa-trash"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL FICHA -->
+    <div class="modal fade" id="ficha-{{ a.id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <form action="{{ url_for('editar_alumno', aid=a.id) }}" method="POST">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <div class="modal-header">
+                        <h6 class="modal-title fw-bold">
+                            <i class="fas fa-user-edit me-2"></i>{{ a.apellido }}, {{ a.nombre }}
+                        </h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        {{ campos(a, a.id) }}
+                    </div>
+                    <div class="modal-footer">
+                        <a href="{{ url_for('facturacion', alumno=a.id) }}" class="btn-ghost me-auto"><i class="fas fa-dollar-sign me-1"></i>Cobrar</a>
+                        <button type="button" class="btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn-brand"><i class="fas fa-save me-1"></i> Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="card">
+        <div class="card-body empty-state">
+            <i class="fas fa-users text-muted"></i>
+            {% if buscar %}
+                <p>No se encontraron alumnos con "<strong>{{ buscar }}</strong>"</p>
+                <a href="{{ url_for('alumnos') }}" class="btn-ghost">Ver todos</a>
+            {% else %}
+                <p>Todavía no hay alumnos registrados</p>
+                <button class="btn-brand" data-bs-toggle="modal" data-bs-target="#modal-nuevo">Agregar el primero</button>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+
+<!-- MODAL NUEVO ALUMNO -->
+<div class="modal fade" id="modal-nuevo" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form action="{{ url_for('agregar_alumno') }}" method="POST">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h6 class="modal-title fw-bold"><i class="fas fa-user-plus me-2"></i>Nuevo alumno</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    {{ campos() }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn-brand"><i class="fas fa-user-plus me-1"></i> Registrar alumno</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Confirmación antes de dar de baja
+document.querySelectorAll('form[data-confirmar]').forEach(f =>
+    f.addEventListener('submit', e => { if (!confirm(f.dataset.confirmar)) e.preventDefault(); }));
+
+// Abrir una ficha directo desde la agenda: /alumnos#ficha-12  (o #nuevo)
+const hash = location.hash.slice(1);
+const destino = hash === 'nuevo' ? 'modal-nuevo' : hash;
+if (/^(ficha-\d+|modal-nuevo)$/.test(destino) && document.getElementById(destino)) {
+    new bootstrap.Modal(document.getElementById(destino)).show();
+    history.replaceState(null, '', location.pathname + location.search);
+}
+</script>
+{% endblock %}

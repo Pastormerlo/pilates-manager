@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ session.get('estudio_nombre', 'Pilates Manager') }}{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand:       #2D6A4F;
+            --brand-light: #52B788;
+            --brand-pale:  #D8F3DC;
+            --accent:      #F77F00;
+            --dark:        #1B1F23;
+            --mid:         #6C757D;
+            --bg:          #F6F8F5;
+            --white:       #FFFFFF;
+            --radius:      14px;
+            --shadow:      0 2px 12px rgba(0,0,0,0.07);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--dark);
+        }
+
+        /* ── NAVBAR ── */
+        .navbar {
+            background: var(--dark) !important;
+            padding: 0.6rem 1.2rem;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+        }
+        .navbar-brand {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.25rem;
+            color: #fff !important;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .navbar-brand img {
+            width: 36px; height: 36px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: #fff;
+            padding: 2px;
+        }
+        .navbar-brand .dot {
+            width: 36px; height: 36px;
+            background: var(--brand);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem;
+        }
+        .nav-link {
+            color: rgba(255,255,255,0.7) !important;
+            font-size: 0.82rem;
+            font-weight: 500;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 0.5rem 0.9rem !important;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #fff !important;
+            background: rgba(255,255,255,0.08);
+        }
+        .nav-link i { margin-right: 5px; }
+        .btn-nav-icon {
+            width: 34px; height: 34px;
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem;
+            border: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn-perfil {
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.8);
+        }
+        .btn-perfil:hover { background: rgba(255,255,255,0.2); color: #fff; }
+        .btn-salir {
+            background: rgba(220,53,69,0.2);
+            color: #ff8a8a;
+        }
+        .btn-salir:hover { background: rgba(220,53,69,0.4); color: #fff; }
+
+        /* ── CONTENIDO ── */
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+        }
+
+        /* ── CARDS ── */
+        .card {
+            border: none;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            background: var(--white);
+        }
+        .card-header-custom {
+            background: var(--dark);
+            color: #fff;
+            border-radius: var(--radius) var(--radius) 0 0;
+            padding: 0.85rem 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-header-custom h6 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 0.88rem;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        /* ── BOTONES ── */
+        .btn-brand {
+            background: var(--brand);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 500;
+            padding: 0.45rem 1.1rem;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .btn-brand:hover { background: var(--brand-light); color: #fff; }
+        .btn-accent {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 500;
+            padding: 0.45rem 1.1rem;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .btn-accent:hover { opacity: 0.88; color: #fff; }
+        .btn-ghost {
+            background: transparent;
+            border: 1.5px solid var(--brand);
+            color: var(--brand);
+            border-radius: 10px;
+            font-weight: 500;
+            padding: 0.4rem 1rem;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .btn-ghost:hover { background: var(--brand); color: #fff; }
+
+        /* ── FORMULARIOS ── */
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 1.5px solid #E2E8E0;
+            font-size: 0.88rem;
+            padding: 0.5rem 0.85rem;
+            transition: border-color 0.2s;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--brand-light);
+            box-shadow: 0 0 0 3px rgba(82,183,136,0.15);
+        }
+        label.form-label, label.small {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--mid);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
+        }
+
+        /* ── TABLA ── */
+        .table { font-size: 0.88rem; }
+        .table th {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--mid);
+            border-bottom: 2px solid #EAEDE8;
+            padding: 0.65rem 1rem;
+        }
+        .table td { padding: 0.7rem 1rem; vertical-align: middle; }
+        .table-hover tbody tr:hover { background: #F0F7F2; }
+
+        /* ── BADGES ── */
+        .badge-verde {
+            background: var(--brand-pale);
+            color: var(--brand);
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .badge-rojo {
+            background: #FFE5E5;
+            color: #C0392B;
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .badge-gris {
+            background: #F0F0F0;
+            color: #666;
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .badge-naranja {
+            background: #FFF0DC;
+            color: #B85C00;
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        /* ── MODALES ── */
+        .modal-content {
+            border: none;
+            border-radius: var(--radius);
+            box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+        }
+        .modal-header {
+            background: var(--dark);
+            color: #fff;
+            border-radius: var(--radius) var(--radius) 0 0;
+            padding: 1rem 1.2rem;
+            border: none;
+        }
+        .modal-header .btn-close { filter: invert(1); }
+        .modal-footer { border: none; padding: 1rem 1.2rem; }
+
+        /* ── NAV EN PASTILLAS ── */
+        .nav-pills-top { display: flex; align-items: center; gap: 0.35rem; }
+        .nav-pill {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            color: rgba(255,255,255,0.75);
+            font-size: 0.8rem; font-weight: 500;
+            padding: 0.35rem 0.8rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.14);
+            text-decoration: none;
+            background: transparent;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .nav-pill:hover { color: #fff; background: rgba(255,255,255,0.1); }
+        .nav-pill.active { color: var(--dark); background: var(--brand-pale); border-color: var(--brand-pale); }
+        .nav-pill.salir { color: #ff9d9d; border-color: rgba(255,120,120,0.3); }
+        .nav-pill.salir:hover { background: rgba(220,53,69,0.35); color: #fff; }
+        .menu-movil .dropdown-menu { border-radius: 12px; border: none; box-shadow: 0 8px 30px rgba(0,0,0,0.18); }
+        .menu-movil .dropdown-item { font-size: 0.9rem; padding: 0.55rem 1rem; }
+        .menu-movil .dropdown-item i { width: 20px; color: var(--brand); }
+        @media (max-width: 767px) {
+            .navbar { padding: 0.45rem 0.6rem; }
+            .navbar-brand { font-size: 1.05rem; }
+            .main-container { padding: 0.75rem 0.5rem; }
+        }
+
+        /* ── AVISOS FLOTANTES ── */
+        .toast-zona {
+            position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+            z-index: 3000; width: min(92vw, 420px);
+        }
+
+        /* ── ALERTAS ── */
+        .alert-custom {
+            border-radius: 10px;
+            border: none;
+            font-size: 0.85rem;
+            padding: 0.7rem 1rem;
+        }
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #C8D8C4; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+{% macro pill(href, icono, texto, activo, extra='') %}
+<a class="nav-pill {{ extra }} {% if activo %}active{% endif %}" href="{{ href }}"><i class="fas {{ icono }}"></i>{{ texto }}</a>
+{% endmacro %}
+{% set p = request.path %}
+<nav class="navbar">
+    <div class="container-fluid px-2 flex-nowrap">
+        <a class="navbar-brand text-truncate" href="{{ url_for('agenda') }}">
+            {% if session.get('logo') %}
+                <img src="{{ url_for('static', filename='uploads/' + session['logo']) }}" alt="logo">
+            {% else %}
+                <div class="dot"><i class="fas fa-leaf"></i></div>
+            {% endif %}
+            <span class="text-truncate">{{ session.get('estudio_nombre', 'Pilates Manager') }}</span>
+        </a>
+
+        <!-- Escritorio: pastillas -->
+        <div class="nav-pills-top d-none d-md-flex ms-auto">
+            {{ pill(url_for('agenda'), 'fa-calendar-week', 'Agenda', p in ('/', '/agenda')) }}
+            {{ pill(url_for('alumnos'), 'fa-users', 'Alumnos', p.startswith('/alumnos')) }}
+            {{ pill(url_for('facturacion'), 'fa-wallet', 'Pagos', p.startswith('/facturacion')) }}
+            {% if session.get('rol') == 'admin' %}
+            {{ pill(url_for('instructores'), 'fa-chalkboard-teacher', 'Equipo', p.startswith('/instructores')) }}
+            {{ pill(url_for('perfil'), 'fa-cog', 'Estudio', p.startswith('/perfil')) }}
+            {% endif %}
+            <form action="{{ url_for('logout') }}" method="POST" class="m-0">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="nav-pill salir" title="Salir ({{ session.get('nombre') }})"><i class="fas fa-sign-out-alt"></i></button>
+            </form>
+        </div>
+
+        <!-- Celular: menú desplegable -->
+        <div class="dropdown menu-movil d-md-none ms-auto">
+            <button class="nav-pill" data-bs-toggle="dropdown" aria-label="Menú">
+                <i class="fas fa-bars"></i> Menú
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ url_for('agenda') }}"><i class="fas fa-calendar-week"></i> Agenda</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('alumnos') }}"><i class="fas fa-users"></i> Alumnos</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('facturacion') }}"><i class="fas fa-wallet"></i> Pagos</a></li>
+                {% if session.get('rol') == 'admin' %}
+                <li><a class="dropdown-item" href="{{ url_for('instructores') }}"><i class="fas fa-chalkboard-teacher"></i> Equipo</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('perfil') }}"><i class="fas fa-cog"></i> Estudio</a></li>
+                {% endif %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <form action="{{ url_for('logout') }}" method="POST" class="m-0">
+                        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                        <button class="dropdown-item text-danger"><i class="fas fa-sign-out-alt text-danger"></i> Salir</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="main-container {% block container_class %}{% endblock %}">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="toast-zona">
+            {% for cat, msg in messages %}
+            <div class="alert alert-{{ cat }} alert-custom alert-dismissible fade show shadow mb-2" role="alert">
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Los avisos se cierran solos a los 5 segundos
+setTimeout(() => document.querySelectorAll('.toast-zona .alert').forEach(a => {
+    try { bootstrap.Alert.getOrCreateInstance(a).close(); } catch (e) {}
+}), 5000);
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

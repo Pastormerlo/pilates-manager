@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrarse — Pilates Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+    <style>
+        :root { --brand: #2D6A4F; --brand-light: #52B788; --dark: #1B1F23; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: linear-gradient(135deg, #1B1F23 0%, #2D3A30 50%, #1B1F23 100%);
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 1rem;
+        }
+        .wrap { width: 100%; max-width: 420px; }
+        .brand-header { text-align: center; margin-bottom: 1.8rem; }
+        .brand-icon {
+            width: 64px; height: 64px; background: var(--brand);
+            border-radius: 18px; display: flex; align-items: center;
+            justify-content: center; font-size: 1.8rem; color: #fff; margin: 0 auto 1rem;
+        }
+        .brand-header h1 { font-family:'DM Serif Display',serif; font-size:1.6rem; color:#fff; margin-bottom:0.3rem; }
+        .brand-header p { color:rgba(255,255,255,0.5); font-size:0.85rem; }
+        .card-reg { background:#fff; border-radius:18px; padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+        label.lbl { font-size:0.72rem; font-weight:600; color:#6C757D; text-transform:uppercase;
+                    letter-spacing:0.04em; display:block; margin-bottom:5px; }
+        .fc {
+            width:100%; border:1.5px solid #E2E8E0; border-radius:10px;
+            padding:0.55rem 0.9rem; font-size:0.9rem; font-family:'DM Sans',sans-serif;
+            transition:border-color 0.2s; outline:none; background:#FAFAFA;
+        }
+        .fc:focus { border-color:var(--brand-light); background:#fff; box-shadow:0 0 0 3px rgba(82,183,136,0.15); }
+        .ig { position:relative; }
+        .ig .fc { padding-right:42px; }
+        .eye { position:absolute; right:12px; top:50%; transform:translateY(-50%);
+               background:none; border:none; color:#aaa; cursor:pointer; font-size:0.85rem; padding:0; }
+        .eye:hover { color:var(--brand); }
+        .btn-reg {
+            width:100%; background:var(--brand); color:#fff; border:none;
+            border-radius:10px; padding:0.65rem; font-size:0.9rem; font-weight:600;
+            font-family:'DM Sans',sans-serif; cursor:pointer; transition:all 0.2s;
+        }
+        .btn-reg:hover { background:var(--brand-light); }
+        .alert-error { background:#FFE5E5; color:#C0392B; border-radius:10px;
+                       padding:0.6rem 0.9rem; font-size:0.83rem; margin-bottom:1.2rem; }
+        hr.div { border:none; border-top:1px solid #F0F0F0; margin:1.5rem 0; }
+        .link-back { text-align:center; font-size:0.83rem; color:#6C757D; }
+        .link-back a { color:var(--brand); font-weight:600; text-decoration:none; }
+        .mf { margin-bottom:1.1rem; }
+        .hint { font-size:0.72rem; color:#aaa; margin-top:4px; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="brand-header">
+        <div class="brand-icon"><i class="fas fa-leaf"></i></div>
+        <h1>Pilates Manager</h1>
+        <p>Creá tu cuenta de instructor</p>
+    </div>
+
+    <div class="card-reg">
+        {% if error %}
+        <div class="alert-error"><i class="fas fa-exclamation-circle me-2"></i>{{ error }}</div>
+        {% endif %}
+
+        <form action="{{ url_for('registro') }}" method="POST">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <div class="mf">
+                <label class="lbl">Nombre de tu estudio *</label>
+                <input type="text" name="nombre_estudio" class="fc"
+                       placeholder="Ej: Pilates Pastormerlo" required autofocus>
+                <div class="hint">Este nombre aparece en la app y en los recibos.</div>
+            </div>
+            <div class="mf">
+                <label class="lbl">Email *</label>
+                <input type="email" name="email" class="fc"
+                       placeholder="tu@mail.com" required>
+            </div>
+            <div class="mf">
+                <label class="lbl">Contraseña *</label>
+                <div class="ig">
+                    <input type="password" name="password" id="pass" class="fc" required
+                           minlength="6" placeholder="Mínimo 6 caracteres">
+                    <button type="button" class="eye" onclick="togglePass()">
+                        <i class="fas fa-eye" id="eye-icon"></i>
+                    </button>
+                </div>
+            </div>
+            <button type="submit" class="btn-reg">CREAR CUENTA</button>
+        </form>
+
+        <hr class="div">
+        <div class="link-back">
+            ¿Ya tenés cuenta? <a href="/login">Iniciá sesión</a>
+        </div>
+    </div>
+</div>
+<script>
+function togglePass() {
+    const p = document.getElementById('pass');
+    const i = document.getElementById('eye-icon');
+    p.type = p.type === 'password' ? 'text' : 'password';
+    i.classList.toggle('fa-eye'); i.classList.toggle('fa-eye-slash');
+}
+</script>
+</body>
+</html>

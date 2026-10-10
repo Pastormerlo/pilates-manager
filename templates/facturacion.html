@@ -1,0 +1,297 @@
+{% extends 'layout.html' %}
+{% block content %}
+<style>
+    .pago-row {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.7rem 1rem;
+        border-bottom: 1px solid #F0F4EE;
+        font-size: 0.85rem;
+    }
+    .pago-row:last-child { border-bottom: none; }
+    .pago-row:hover { background: #F8FAF7; }
+    .pago-monto {
+        font-weight: 700;
+        color: var(--brand);
+        font-size: 0.95rem;
+        min-width: 80px;
+        text-align: right;
+    }
+    .total-bar {
+        background: var(--dark);
+        color: #fff;
+        border-radius: var(--radius);
+        padding: 1rem 1.4rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .total-bar .valor {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--brand-light);
+        font-family: 'DM Serif Display', serif;
+    }
+    .deudor-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: #FFE5E5;
+        color: #C0392B;
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        margin: 2px;
+    }
+    .mes-selector {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+    .mes-btn {
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        border: 1.5px solid #E2E8E0;
+        background: transparent;
+        color: var(--mid);
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    .mes-btn:hover, .mes-btn.activo {
+        background: var(--brand);
+        border-color: var(--brand);
+        color: #fff;
+    }
+</style>
+
+<!-- HEADER -->
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="mb-0" style="font-family:'DM Serif Display',serif;">Pagos</h4>
+        <span class="text-muted" style="font-size:0.8rem;">Mes: {{ mes_filtro }}</span>
+    </div>
+    <button class="btn-brand" data-bs-toggle="modal" data-bs-target="#modalPago">
+        <i class="fas fa-plus me-1"></i> Registrar pago
+    </button>
+</div>
+
+<!-- TOTAL DEL MES -->
+<div class="total-bar">
+    <div>
+        <div style="font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase; opacity:0.6;">
+            Total cobrado
+        </div>
+        <div class="valor">${{ "{:,.0f}".format(total_mes).replace(',', '.') }}</div>
+    </div>
+    <div style="text-align:right;">
+        <div style="font-size:0.72rem; opacity:0.6;">{{ pagos|length }} pago{{ 's' if pagos|length != 1 }}</div>
+        <div style="font-size:0.78rem; opacity:0.8;">{{ mes_filtro }}</div>
+    </div>
+</div>
+
+<!-- SELECTOR DE MES -->
+<div class="mes-selector">
+    <a href="{{ url_for('facturacion', mes=now_mes) }}" class="mes-btn {% if mes_filtro == now_mes %}activo{% endif %}">
+        Este mes
+    </a>
+    {% for m in meses_con_pagos %}
+    <a href="{{ url_for('facturacion', mes=m.mes) }}"
+       class="mes-btn {% if mes_filtro == m.mes %}activo{% endif %}">
+        {{ m.mes }}
+    </a>
+    {% endfor %}
+</div>
+
+<div class="row g-3">
+    <!-- PAGOS DEL MES -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header-custom">
+                <h6><i class="fas fa-list me-2"></i>Movimientos</h6>
+            </div>
+            {% if pagos %}
+                {% for p in pagos %}
+                <div class="pago-row">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:600;">{{ p.alumno_nombre }}</div>
+                        <div style="font-size:0.75rem; color:var(--mid);">
+                            {{ p.concepto }} &middot; {{ p.fecha }}{% if es_admin %} &middot; cobró {{ p.instructor_nombre }}{% endif %}
+                        </div>
+                    </div>
+                    <div class="pago-monto">${{ "{:,.0f}".format(p.monto).replace(',', '.') }}</div>
+                    <div class="d-flex gap-1">
+                        <button type="button" class="btn-recibo"
+                                data-fecha="{{ p.fecha }}" data-alumno="{{ p.alumno_nombre }}"
+                                data-concepto="{{ p.concepto }}" data-monto="{{ p.monto }}" data-mes="{{ p.mes }}"
+                                title="Imprimir recibo"
+                                style="width:32px;height:32px;border-radius:8px;background:#E8F4FD;color:#2980B9;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.8rem;">
+                            <i class="fas fa-print"></i>
+                        </button>
+                        <form action="{{ url_for('eliminar_pago', pid=p.id) }}" method="POST" class="m-0"
+                              onsubmit="return confirm('¿Eliminar este pago?')">
+                            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                            <input type="hidden" name="mes" value="{{ mes_filtro }}">
+                            <button title="Eliminar pago"
+                                    style="width:32px;height:32px;border-radius:8px;background:#FFE5E5;color:#C0392B;border:none;display:flex;align-items:center;justify-content:center;font-size:0.8rem;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-file-invoice-dollar fa-2x mb-2 d-block"></i>
+                    Sin pagos registrados para este mes
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- DEUDORES -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header-custom" style="background:#8B1A1A;">
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Sin pagar</h6>
+                <span style="font-size:0.75rem; opacity:0.7;">{{ deudores|length }}</span>
+            </div>
+            <div class="card-body p-3">
+                {% if deudores %}
+                    {% for d in deudores %}
+                    <div style="display:flex;align-items:center;justify-content:space-between;
+                                padding:0.5rem 0;border-bottom:1px solid #F0F4EE;font-size:0.83rem;">
+                        <span>{{ d.apellido }}, {{ d.nombre }}</span>
+                        <button type="button" class="btn-brand btn-cobrar"
+                                style="padding:3px 10px;font-size:0.72rem;"
+                                data-alumno="{{ d.id }}">
+                            Cobrar
+                        </button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-3 text-muted" style="font-size:0.85rem;">
+                        <i class="fas fa-check-circle text-success fa-lg mb-2 d-block"></i>
+                        ¡Todos al día!
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL REGISTRAR PAGO -->
+<div class="modal fade" id="modalPago" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="{{ url_for('registrar_pago') }}" method="POST">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h6 class="modal-title fw-bold">
+                        <i class="fas fa-hand-holding-usd me-2"></i>Registrar pago
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="small">Alumno *</label>
+                        <select name="alumno_id" id="sel_alumno" class="form-select" required>
+                            <option value="">— Seleccionar —</option>
+                            {% for a in alumnos %}
+                            <option value="{{ a.id }}">{{ a.apellido }}, {{ a.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small">Monto ($) *</label>
+                        <input type="number" name="monto" class="form-control"
+                               placeholder="Ej: 15000" required min="1" step="any"
+                               value="{{ '%.0f'|format(valor_mes) if valor_mes else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="small">Mes</label>
+                        <input type="month" name="mes" class="form-control"
+                               value="{{ mes_filtro }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="small">Concepto</label>
+                        <input type="text" name="concepto" class="form-control"
+                               value="Cuota Mensual">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn-brand">
+                        <i class="fas fa-check me-1"></i> Registrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const nombreEstudio = {{ nombre_estudio|tojson }};
+const modalPago = new bootstrap.Modal(document.getElementById('modalPago'));
+
+function cobrar(alumnoId) {
+    document.getElementById('sel_alumno').value = alumnoId;
+    modalPago.show();
+}
+document.querySelectorAll('.btn-cobrar').forEach(b =>
+    b.addEventListener('click', () => cobrar(b.dataset.alumno)));
+
+{% if alumno_pre %}
+cobrar({{ alumno_pre|tojson }});   // viene de "Cobrar" en la agenda
+{% endif %}
+
+// Recibo: los datos se insertan como texto, nunca como HTML
+document.querySelectorAll('.btn-recibo').forEach(b => b.addEventListener('click', () => {
+    const d = b.dataset;
+    const w = window.open('', '_blank', 'width=620,height=520');
+    if (!w) { alert('Permití las ventanas emergentes para imprimir el recibo.'); return; }
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Recibo</title>
+        <style>
+            body{font-family:sans-serif;padding:48px;max-width:520px;margin:auto;}
+            h1{font-size:1.4rem;margin-bottom:0;}
+            .sub{color:#666;font-size:0.85rem;margin-bottom:2rem;}
+            table{width:100%;border-collapse:collapse;margin-bottom:1.5rem;}
+            td{padding:10px 0;border-bottom:1px solid #eee;font-size:0.95rem;}
+            td:last-child{text-align:right;font-weight:600;}
+            .total{font-size:1.3rem;font-weight:700;color:#2D6A4F;}
+            .firma{border-top:1.5px solid #000;width:180px;margin-top:3rem;padding-top:6px;font-size:0.78rem;color:#666;}
+            @media print{body{padding:20px;}}
+        </style></head>
+        <body>
+            <h1 id="r-estudio"></h1>
+            <p class="sub">Recibo de pago</p>
+            <table>
+                <tr><td>Alumno</td><td id="r-alumno"></td></tr>
+                <tr><td>Concepto</td><td id="r-concepto"></td></tr>
+                <tr><td>Mes</td><td id="r-mes"></td></tr>
+                <tr><td>Fecha</td><td id="r-fecha"></td></tr>
+                <tr><td>Total</td><td class="total" id="r-total"></td></tr>
+            </table>
+            <div class="firma">Firma / Sello</div>
+        </body></html>`);
+    w.document.close();
+    const set = (id, txt) => { w.document.getElementById(id).textContent = txt; };
+    set('r-estudio', nombreEstudio);
+    set('r-alumno', d.alumno);
+    set('r-concepto', d.concepto);
+    set('r-mes', d.mes);
+    set('r-fecha', d.fecha);
+    set('r-total', '$' + Number(d.monto).toLocaleString('es-AR'));
+    w.focus();
+    w.print();
+}));
+</script>
+{% endblock %}

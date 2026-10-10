@@ -1,0 +1,201 @@
+{% extends 'layout.html' %}
+{% block content %}
+<style>
+    .inst-card {
+        background: var(--white);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 1rem 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.6rem;
+        transition: box-shadow 0.2s;
+    }
+    .inst-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    .inst-avatar {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 1rem;
+        flex-shrink: 0;
+        color: #fff;
+    }
+    .avatar-admin { background: var(--brand); }
+    .avatar-inst  { background: #2980B9; }
+    .inst-nombre  { font-weight: 600; font-size: 0.92rem; }
+    .inst-sub     { font-size: 0.78rem; color: var(--mid); }
+    .btn-accion {
+        width: 32px; height: 32px; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.8rem; border: none; cursor: pointer;
+        transition: all 0.2s; text-decoration: none;
+    }
+    .btn-editar { background: #E8F4FD; color: #2980B9; }
+    .btn-editar:hover { background: #2980B9; color: #fff; }
+    .btn-borrar { background: #FFE5E5; color: #C0392B; }
+    .btn-borrar:hover { background: #C0392B; color: #fff; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="mb-0" style="font-family:'DM Serif Display',serif;">Instructores</h4>
+        <span class="text-muted" style="font-size:0.8rem;">
+            {{ instructores|length }} instructor{{ 'es' if instructores|length != 1 }}
+        </span>
+    </div>
+    <button class="btn-brand" data-bs-toggle="modal" data-bs-target="#modalNuevo">
+        <i class="fas fa-user-plus me-1"></i> Nuevo instructor
+    </button>
+</div>
+
+{% for i in instructores %}
+<div class="inst-card">
+    <div class="inst-avatar {% if i.rol == 'admin' %}avatar-admin{% else %}avatar-inst{% endif %}">
+        {{ i.nombre[0]|upper }}
+    </div>
+    <div style="flex:1; min-width:0;">
+        <div class="inst-nombre">
+            {{ i.nombre }}
+            {% if not i.activo %}
+                <span class="badge-rojo ms-1">Inactivo</span>
+            {% endif %}
+        </div>
+        <div class="inst-sub">
+            <i class="fas fa-envelope me-1"></i>{{ i.email }}
+        </div>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-shrink-0">
+        {% if i.rol == 'admin' %}
+            <span class="badge-verde"><i class="fas fa-crown me-1"></i>Admin</span>
+        {% else %}
+            <span class="badge-gris">Instructor</span>
+        {% endif %}
+
+        <button class="btn-accion btn-editar"
+                data-bs-toggle="modal"
+                data-bs-target="#modalEdit{{ i.id }}"
+                title="Editar">
+            <i class="fas fa-edit"></i>
+        </button>
+
+        {% if i.id != session.get('instructor_id') and i.activo %}
+        <form action="{{ url_for('desactivar_instructor', iid=i.id) }}" method="POST" class="m-0"
+              data-confirmar="¿Desactivar a {{ i.nombre }}? No va a poder ingresar.">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button class="btn-accion btn-borrar" title="Desactivar"><i class="fas fa-ban"></i></button>
+        </form>
+        {% elif not i.activo %}
+        <form action="{{ url_for('activar_instructor', iid=i.id) }}" method="POST" class="m-0">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button class="btn-accion btn-editar" title="Reactivar"><i class="fas fa-undo"></i></button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- MODAL EDITAR -->
+<div class="modal fade" id="modalEdit{{ i.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="{{ url_for('editar_instructor', iid=i.id) }}" method="POST">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h6 class="modal-title fw-bold">
+                        <i class="fas fa-user-edit me-2"></i>Editar: {{ i.nombre }}
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="small">Nombre *</label>
+                        <input type="text" name="nombre" class="form-control"
+                               value="{{ i.nombre }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small">Rol</label>
+                        <select name="rol" class="form-select"
+                                {% if i.id == session.get('instructor_id') %}disabled{% endif %}>
+                            <option value="instructor" {% if i.rol=='instructor' %}selected{% endif %}>
+                                Instructor
+                            </option>
+                            <option value="admin" {% if i.rol=='admin' %}selected{% endif %}>
+                                Admin (ve todo)
+                            </option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small">Nueva contraseña <span style="font-weight:400;text-transform:none;">(dejar vacío para no cambiar)</span></label>
+                        <input type="password" name="password" class="form-control"
+                               placeholder="••••••" minlength="6">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn-brand">
+                        <i class="fas fa-save me-1"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- MODAL NUEVO INSTRUCTOR -->
+<div class="modal fade" id="modalNuevo" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="{{ url_for('agregar_instructor') }}" method="POST">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h6 class="modal-title fw-bold">
+                        <i class="fas fa-user-plus me-2"></i>Nuevo instructor
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="small">Nombre completo *</label>
+                        <input type="text" name="nombre" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small">Email (para ingresar) *</label>
+                        <input type="email" name="email" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small">Contraseña *</label>
+                        <input type="password" name="password" class="form-control"
+                               required minlength="6" placeholder="Mínimo 6 caracteres">
+                    </div>
+                    <div class="mb-3">
+                        <label class="small">Rol</label>
+                        <select name="rol" class="form-select">
+                            <option value="instructor">Instructor (solo su agenda y cobros)</option>
+                            <option value="admin">Admin (ve todo el estudio)</option>
+                        </select>
+                    </div>
+                    <div class="p-3 rounded" style="background:#F0F7F2; font-size:0.78rem; color:var(--brand);">
+                        <i class="fas fa-info-circle me-1"></i>
+                        El instructor podrá ingresar con su email y contraseña desde la pantalla de login.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn-brand">
+                        <i class="fas fa-user-plus me-1"></i> Agregar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('form[data-confirmar]').forEach(f =>
+    f.addEventListener('submit', e => { if (!confirm(f.dataset.confirmar)) e.preventDefault(); }));
+</script>
+{% endblock %}
